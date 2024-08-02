@@ -39,6 +39,13 @@ static const int MaterialFlags_UseNormalTexture                 = 0x00000020;
 static const int MaterialFlags_UseOcclusionTexture              = 0x00000040;
 static const int MaterialFlags_UseTransmissionTexture           = 0x00000080;
 
+static const int MaterialFlags_NonUnity = 0;
+static const int MaterialFlags_PanguScenePBR = 1;
+static const int MaterialFlags_TreeLeafV7 = 2;
+static const int MaterialFlags_MeshTilling = 3;
+static const int MaterialFlags_TerrainSplat = 4;
+static const int MaterialFlags_PackedUnity = 5;
+
 // NOTE: adjust LoadMaterialConstants(...) in bindless.h when changing this structure
 
 struct MaterialConstants

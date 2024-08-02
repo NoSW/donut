@@ -315,6 +315,87 @@ bool PointLight::SetProperty(const std::string& name, const dm::float4& value)
     return Light::SetProperty(name, value);
 }
 
+
+std::shared_ptr<SceneGraphLeaf> RectangleLight::Clone()
+{
+    auto copy = std::make_shared<RectangleLight>();
+    copy->color = color;
+    copy->bUseTemperature = bUseTemperature;
+    copy->colorTemperature = colorTemperature;
+    copy->flags = flags;
+    copy->unityID = unityID;
+    copy->flux = flux;
+    copy->range = range;
+    copy->width = width;
+    copy->height = height;
+    copy->barnAngle = barnAngle;
+    copy->barnLength = barnLength;
+    return std::static_pointer_cast<SceneGraphLeaf>(copy);
+}
+
+void RectangleLight::FillLightConstants(LightConstants& lightConstants) const
+{
+    Light::FillLightConstants(lightConstants);
+
+    lightConstants.lightType = LightType_Rectangle;
+    lightConstants.position = float3(GetPosition());
+    lightConstants.intensity = flux;
+    lightConstants.color = color;
+}
+
+void RectangleLight::Load(const Json::Value& node)
+{
+}
+
+void RectangleLight::Store(Json::Value& node) const
+{
+}
+
+bool RectangleLight::SetProperty(const std::string& name, const dm::float4& value)
+{
+    return Light::SetProperty(name, value);
+}
+
+
+std::shared_ptr<SceneGraphLeaf> DiscLight::Clone()
+{
+    auto copy = std::make_shared<DiscLight>();
+    copy->color = color;
+    copy->bUseTemperature = bUseTemperature;
+    copy->colorTemperature = colorTemperature;
+    copy->flags = flags;
+    copy->unityID = unityID;
+    copy->flux = flux;
+    copy->range = range;
+    copy->radius = radius;
+    return std::static_pointer_cast<SceneGraphLeaf>(copy);
+}
+
+void DiscLight::FillLightConstants(LightConstants& lightConstants) const
+{
+    Light::FillLightConstants(lightConstants);
+
+    lightConstants.lightType = LightType_Rectangle;
+    lightConstants.position = float3(GetPosition());
+    lightConstants.intensity = flux;
+    lightConstants.color = color;
+}
+
+void DiscLight::Load(const Json::Value& node)
+{
+}
+
+void DiscLight::Store(Json::Value& node) const
+{
+}
+
+bool DiscLight::SetProperty(const std::string& name, const dm::float4& value)
+{
+    return Light::SetProperty(name, value);
+}
+
+
+
 nvrhi::VertexAttributeDesc donut::engine::GetVertexAttributeDesc(VertexAttribute attribute, const char* name, uint32_t bufferIndex)
 {
     nvrhi::VertexAttributeDesc result = {};

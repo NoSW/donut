@@ -36,12 +36,12 @@ this software is released into the Public Domain.
 
 #include <donut/engine/Scene.h>
 #include <donut/engine/GltfImporter.h>
+#include <donut/engine/FBScene.h>
 #include <donut/core/json.h>
 #include <donut/core/log.h>
 #include <donut/core/string_utils.h>
 #include <nvrhi/common/misc.h>
 #include <json/value.h>
-
 #include "donut/engine/ShaderFactory.h"
 
 #if DONUT_WITH_STATIC_SHADERS
@@ -65,6 +65,7 @@ using namespace donut::math;
 #include <donut/shaders/material_cb.h>
 #include <donut/shaders/skinning_cb.h>
 #include <donut/shaders/bindless.h>
+#include <fstream>
 
 using namespace donut::vfs;
 using namespace donut::engine;
@@ -127,6 +128,49 @@ Scene::Scene(
         pipelineDesc.CS = m_SkinningShader;
         m_SkinningPipeline = m_Device->createComputePipeline(pipelineDesc);
     }
+}
+
+bool Scene::LoadFBScene(const std::filesystem::path& fbFileName)
+{
+    if (std::filesystem::exists(fbFileName) && std::filesystem::is_regular_file(fbFileName))
+    {
+        std::ifstream ifs(fbFileName, std::ios::binary);
+        ifs.seekg(0, std::ios::end);
+        size_t fileSize = ifs.tellg();
+        ifs.seekg(0, std::ios::beg);
+        std::vector<uint8_t> buffer(fileSize);
+        ifs.read(reinterpret_cast<char*>(buffer.data()), fileSize);
+        ifs.close();
+        return LoadFBSceneFromMemory(buffer.data(), buffer.size());
+    }
+    log::error("File not found: %s", fbFileName.string().c_str());
+    return false;
+}
+
+bool Scene::LoadFBSceneFromMemory(const uint8_t* data, uint32_t size)
+{
+    g_LoadingStats.ObjectsLoaded = 0;
+    g_LoadingStats.ObjectsTotal = 0;
+
+    ++g_LoadingStats.ObjectsTotal;
+    FBScene fbscene(data, size);
+    SceneImportResult result;
+    std::vector<void*> sharedHandles;
+    if (!fbscene.GetSceneData(m_SceneTypeFactory, *m_TextureCache, g_LoadingStats, nullptr, result, sharedHandles))
+    {
+        log::error("Failed to load the scene from the file.");
+        return false;
+    }
+
+    m_Models.push_back(result);
+    ++g_LoadingStats.ObjectsLoaded;
+    auto modelResult = m_Models[0];
+    if (!modelResult.rootNode)
+        return false;
+
+    m_SceneGraph = std::make_shared<SceneGraph>();
+    m_SceneGraph->SetRootNode(modelResult.rootNode);
+    return true;
 }
 
 bool Scene::Load(const std::filesystem::path& jsonFileName)

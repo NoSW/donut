@@ -52,6 +52,7 @@ namespace donut::app
         virtual ~BaseCamera() = default;
 
         void SetMoveSpeed(float value) { m_MoveSpeed = value; }
+        float GetMoveSpeed() const { return m_MoveSpeed; }
         void SetRotateSpeed(float value) { m_RotateSpeed = value; }
 
         [[nodiscard]] const dm::affine3& GetWorldToViewMatrix() const { return m_MatWorldToView; }

@@ -48,6 +48,7 @@ freely, subject to the following restrictions:
 */
 
 #include <donut/app/DeviceManager.h>
+#include <donut/app/UnityApi.h>
 #include <donut/core/math/math.h>
 #include <donut/core/log.h>
 #include <nvrhi/utils.h>
@@ -453,14 +454,15 @@ void DeviceManager::UpdateAverageFrameTime(double elapsedTime)
 void DeviceManager::RunMessageLoop()
 {
     m_PreviousFrameTimestamp = glfwGetTime();
-
-    while(!glfwWindowShouldClose(m_Window))
+    auto* pUnity = UnityApi::GetApiInstance();
+    while(m_DeviceParams.headlessDevice || !glfwWindowShouldClose(m_Window))
     {
+        if (pUnity && pUnity->ShouldExit()) { break; }
 
         if (m_callbacks.beforeFrame) m_callbacks.beforeFrame(*this);
 
         glfwPollEvents();
-        UpdateWindowSize();
+        if (!m_DeviceParams.headlessDevice) { UpdateWindowSize(); }
         AnimateRenderPresent();
     }
 

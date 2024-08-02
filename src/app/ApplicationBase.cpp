@@ -25,6 +25,7 @@
 #include <donut/engine/TextureCache.h>
 #include <donut/engine/CommonRenderPasses.h>
 #include <donut/core/vfs/VFS.h>
+#include <donut/app/UnityApi.h>
 
 #include <cstdlib>
 #include <sstream>
@@ -229,7 +230,8 @@ std::filesystem::path donut::app::FindMediaFolder(const std::filesystem::path& n
 // XXXX mk: as of C++20, there is no portable solution (yet ?)
 std::filesystem::path donut::app::GetDirectoryWithExecutable()
 {
-	
+    auto* pUnity = UnityApi::GetApiInstance();
+    if (pUnity && pUnity->HasValidPluginFolder()) { return pUnity->GetPluginFolder(); }
     char path[PATH_MAX] = {0};
 #ifdef _WIN32
     if (GetModuleFileNameA(nullptr, path, dim(path)) == 0)

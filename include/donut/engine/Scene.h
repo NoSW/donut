@@ -135,6 +135,10 @@ namespace donut::engine
 
         bool Load(const std::filesystem::path& jsonFileName);
 
+        bool LoadFBScene(const std::filesystem::path& fbFileName);
+
+        bool LoadFBSceneFromMemory(const uint8_t* data, uint32_t size);
+
         virtual bool LoadWithExecutor(const std::filesystem::path& sceneFileName, tf::Executor* executor);
 
         static const SceneLoadingStats& GetLoadingStats();
@@ -144,5 +148,15 @@ namespace donut::engine
         [[nodiscard]] nvrhi::IBuffer* GetMaterialBuffer() const { return m_MaterialBuffer; }
         [[nodiscard]] nvrhi::IBuffer* GetGeometryBuffer() const { return m_GeometryBuffer; }
         [[nodiscard]] nvrhi::IBuffer* GetInstanceBuffer() const { return m_InstanceBuffer; }
+
+        enum SharedTextureName
+        {
+            kSharedTextureName_KeyBuf = 0,
+            kSharedTextureName_Tex0,
+            kSharedTextureName_Tex1,
+            kSharedTextureName_LightmapSS,
+            kSharedTextureName_LightmapDirSS,
+            kSharedTextureName_Count,
+        };
     };
 }

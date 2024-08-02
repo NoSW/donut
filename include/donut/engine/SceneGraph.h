@@ -184,6 +184,11 @@ namespace donut::engine
         std::shared_ptr<IShadowMap> shadowMap;
         int shadowChannel = -1;
         dm::float3 color = dm::colors::white;
+        bool bUseTemperature = false;
+        float colorTemperature = 6500.f;
+        float indirectMultiplier = 1.f;
+        uint32_t flags = 0;
+        int32_t unityID = 0;
 
         [[nodiscard]] SceneContentFlags GetContentFlags() const override { return SceneContentFlags::Lights; }
 
@@ -222,6 +227,8 @@ namespace donut::engine
         float range = 0.f;      // Range of influence for the light. 0 means infinite range.
         float innerAngle = 180.f;    // Apex angle of the full-bright cone, in degrees; constant intensity inside the inner cone, smooth falloff between inside and outside.
         float outerAngle = 180.f;    // Apex angle of the light cone, in degrees - everything outside of that cone is dark.
+        float sourceRadius = 0.f;    // Radius of the light source, in world units.
+        float sourceLength = 0.f;    // Length of the light source, in world units.
 
         [[nodiscard]] std::shared_ptr<SceneGraphLeaf> Clone() override;
         [[nodiscard]] int GetLightType() const override { return LightType_Spot; }
@@ -237,9 +244,44 @@ namespace donut::engine
         float intensity = 1.f;  // Luminous intensity of the light (lm/sr); multiplied by `color`.
         float radius = 0.f;    // Radius of the light sphere, in world units.
         float range = 0.f;     // Range of influence for the light. 0 means infinite range.
+        float sourceRadius = 0.f;    // Radius of the light source, in world units.
+        float sourceLength = 0.f;    // Length of the light source, in world units.
 
         [[nodiscard]] std::shared_ptr<SceneGraphLeaf> Clone() override;
         [[nodiscard]] int GetLightType() const override { return LightType_Point; }
+        void FillLightConstants(LightConstants& lightConstants) const override;
+        void Load(const Json::Value& node) override;
+        void Store(Json::Value& node) const override;
+        bool SetProperty(const std::string& name, const dm::float4& value) override;
+    };
+
+    class RectangleLight : public Light
+    {
+    public:
+        float flux = 1.f;  // Luminous intensity of the light (lm/sr); multiplied by `color`.
+        float width = 1.f;      // Width of the light rectangle, in world units.
+        float height = 1.f;     // Height of the light rectangle, in world units.
+        float range = 0.f;      // Range of influence for the light. 0 means infinite range.
+        float barnAngle = 0.f;    // Radius of the light source, in world units.
+        float barnLength = 0.f;    // Length of the light source, in world units.
+
+        [[nodiscard]] std::shared_ptr<SceneGraphLeaf> Clone() override;
+        [[nodiscard]] int GetLightType() const override { return LightType_Rectangle; }
+        void FillLightConstants(LightConstants& lightConstants) const override;
+        void Load(const Json::Value& node) override;
+        void Store(Json::Value& node) const override;
+        bool SetProperty(const std::string& name, const dm::float4& value) override;
+    };
+
+    class DiscLight : public Light
+    {
+    public:
+        float flux = 1.f;  // Luminous intensity of the light (lm/sr); multiplied by `color`.
+        float radius = 1.f;     // Radius of the light disc, in world units.
+        float range = 0.f;      // Range of influence for the light. 0 means infinite range.
+
+        [[nodiscard]] std::shared_ptr<SceneGraphLeaf> Clone() override;
+        [[nodiscard]] int GetLightType() const override { return LightType_Disc; }
         void FillLightConstants(LightConstants& lightConstants) const override;
         void Load(const Json::Value& node) override;
         void Store(Json::Value& node) const override;
@@ -285,6 +327,7 @@ namespace donut::engine
         DirtyFlags m_Dirty = DirtyFlags::None;
         SceneContentFlags m_LeafContent = SceneContentFlags::None;
         SceneContentFlags m_SubgraphContent = SceneContentFlags::None;
+        int32_t m_UnityID = 0;
 
         void UpdateLocalTransform();
         void PropagateDirtyFlags(SceneGraphNode::DirtyFlags flags);
@@ -317,6 +360,8 @@ namespace donut::engine
         [[nodiscard]] std::shared_ptr<SceneGraph> GetGraph() const { return m_Graph.lock(); }
 
         [[nodiscard]] std::filesystem::path GetPath() const;
+        [[nodiscard]] int32_t GetUnityID() const { return m_UnityID; }
+
 
         void InvalidateContent();
 
@@ -326,6 +371,7 @@ namespace donut::engine
         void SetTranslation(const dm::double3& translation);
         void SetLeaf(const std::shared_ptr<SceneGraphLeaf>& leaf);
         void SetName(const std::string& name);
+        void SetUnityID(int32_t unityID) { m_UnityID = unityID; }
 
         void ReverseChildren();
 
