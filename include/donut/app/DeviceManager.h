@@ -77,6 +77,30 @@ freely, subject to the following restrictions:
 #include <list>
 #include <functional>
 
+#if DONUT_WITH_VULKAN
+inline constexpr auto kExceptedVulkanInstanceExts = std::array{
+    //VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME,
+    VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME
+};
+
+inline constexpr auto kExceptedVulkanDeviceExts = std::array {
+    VK_KHR_MAINTENANCE1_EXTENSION_NAME,
+    VK_KHR_FRAGMENT_SHADING_RATE_EXTENSION_NAME,
+    VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
+    VK_KHR_MAINTENANCE_4_EXTENSION_NAME,
+    // bindless
+    VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
+    VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
+    
+    // ray tracing
+    VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+    VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+    VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME,
+    VK_KHR_RAY_QUERY_EXTENSION_NAME,
+    VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME
+};
+#endif
+
 namespace donut::app
 {
     struct DefaultMessageCallback : public nvrhi::IMessageCallback
@@ -177,7 +201,7 @@ namespace donut::app
     class DeviceManager
     {
     public:
-        static DeviceManager* Create(nvrhi::GraphicsAPI api);
+        static DeviceManager* Create(nvrhi::GraphicsAPI api, void* pExternalDevice = nullptr);
 
         bool CreateHeadlessDevice(const DeviceCreationParameters& params);
         bool CreateWindowDeviceAndSwapChain(const DeviceCreationParameters& params, const char* windowTitle);
@@ -257,6 +281,8 @@ namespace donut::app
         [[nodiscard]] virtual nvrhi::IDevice *GetDevice() const = 0;
         [[nodiscard]] virtual const char *GetRendererString() const = 0;
         [[nodiscard]] virtual nvrhi::GraphicsAPI GetGraphicsAPI() const = 0;
+        [[nodiscard]] virtual void* GetNativeInstance() { return nullptr;  }
+        [[nodiscard]] virtual void* GetNativeDevice() { return nullptr; }
 
         const DeviceCreationParameters& GetDeviceParams();
         [[nodiscard]] double GetAverageFrameTimeSeconds() const { return m_AverageFrameTime; }
@@ -299,6 +325,7 @@ namespace donut::app
         virtual bool IsVulkanInstanceExtensionEnabled(const char* extensionName) const { return false; }
         virtual bool IsVulkanDeviceExtensionEnabled(const char* extensionName) const { return false; }
         virtual bool IsVulkanLayerEnabled(const char* layerName) const { return false; }
+        
         virtual void GetEnabledVulkanInstanceExtensions(std::vector<std::string>& extensions) const { }
         virtual void GetEnabledVulkanDeviceExtensions(std::vector<std::string>& extensions) const { }
         virtual void GetEnabledVulkanLayers(std::vector<std::string>& layers) const { }
@@ -314,9 +341,9 @@ namespace donut::app
         } m_callbacks;
 
     private:
-        static DeviceManager* CreateD3D11();
-        static DeviceManager* CreateD3D12();
-        static DeviceManager* CreateVK();
+        static DeviceManager* CreateD3D11(void* pExternalDevice);
+        static DeviceManager* CreateD3D12(void* pExternalDevice);
+        static DeviceManager* CreateVK(void* pExternalDevice);
 
         std::string m_WindowTitle;
     };

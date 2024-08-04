@@ -1,13 +1,16 @@
 #pragma once
+#include <donut/core/log.h>
+#include <nvrhi/nvrhi.h>
 #include <cmath>
 #include <filesystem>
 #include <thread>
+#include <mutex>
 #undef min
 #undef max
 
 struct IUnityInterfaces;
 struct IUnityGraphics;
-namespace donut::app
+namespace donut::unity
 {
 
 struct UnityTexDesc
@@ -44,8 +47,9 @@ protected:
     }
 
 public:
-    virtual void init(IUnityInterfaces* pUnity) = 0;
-    virtual void destroy() = 0;
+	UnityApi(IUnityInterfaces* pUnity) : mpUnity(pUnity) { }
+    virtual void initialize()  {}
+    virtual void shutdown() { ExitBakerThread(); }
     virtual void* createSharedTexSrc(UnityTexDesc desc) = 0;
     virtual void* createSharedTexDst(UnityTexDesc desc) = 0;
     virtual void* createSharedBufSrc(UnityBufDesc desc) = 0;
@@ -57,38 +61,41 @@ public:
     static UnityApi* GetApiInstance();
 public:
 
-    void LaunchBakerThread(bool headless)
-    {
-        ExitBakerThread();
-        if (HasValidPluginFolder())
-        {
-            mpBakeThread = std::make_unique<std::thread>([this, headless]()
-            {
-                mShouldExit = false;
-                SetThreadDescription(GetCurrentThread(), L"FBakerThread");
-                launchThreadPtr(headless);
-            });
-            mpBakeThread->detach();
-        }
-    }
-
+    void LaunchBakerThread(bool headless);
+	void* GetSrcTexData() { return mOwnedTexPtrs.empty() ? nullptr : mOwnedTexPtrs.data(); }
+	void* GetSrcBufData() { return mOwnedBufPtrs.empty() ? nullptr : mOwnedBufPtrs.data(); }
+	void* GetDstTexData() { return mDstTexPtrs.empty() ? nullptr : mDstTexPtrs.data(); }
+    virtual nvrhi::GraphicsAPI GetPreferredAPIByUnityGfxAPI(void*& pOutUnityDevice) const { return nvrhi::GraphicsAPI::D3D12; pOutUnityDevice = nullptr; }
     std::filesystem::path GetPluginFolder() { return mPluginFolder; }
+	std::filesystem::path GetTempImportFolder() { return mTempImportFolder; }
+	std::filesystem::path GetTempExportFolder() { return mTempExportFolder; }
     bool HasValidPluginFolder() { return std::filesystem::exists(mPluginFolder) && std::filesystem::is_directory(mPluginFolder); }
-    void SetPluginFolder(char* pluginFolder) { mPluginFolder = pluginFolder; }
+	bool HasValidTempImportFolder() { return std::filesystem::exists(mTempImportFolder) && std::filesystem::is_directory(mTempImportFolder); }
+	bool HasValidTempExportFolder() { return std::filesystem::exists(mTempExportFolder) && std::filesystem::is_directory(mTempExportFolder); }
+    void SetFolders(char* pluginFolder, char* tempImportFolder, char* tempExportFolder);
     void ExitBakerThread() { if (mpBakeThread) { mShouldExit = true; } }
     bool ShouldExit() { return mShouldExit; }
-    static int (*launchThreadPtr)(bool);
+    static int (*ThreadEntryPtr)(bool);
 protected:
     std::vector<void*> mOwnedTexPtrs;
     std::vector<void*> mOwnedBufPtrs;
+	std::vector<void*> mDstTexPtrs;
 
-protected:
+public:
     IUnityInterfaces* mpUnity = nullptr;
     IUnityGraphics* mpUnityGraphics = nullptr;
     std::unique_ptr<std::thread> mpBakeThread;
+	std::mutex mMutex;
+	std::condition_variable mCVar;
     bool mShouldExit = false;
     std::filesystem::path mPluginFolder;
+	std::filesystem::path mTempImportFolder;
+	std::filesystem::path mTempExportFolder;
 
 };
+
+UnityApi* CreateUnityVulkan(IUnityInterfaces* pUnity);
+UnityApi* CreateUnityD3D11(IUnityInterfaces* pUnity);
+UnityApi* CreateUnityD3D12(IUnityInterfaces* pUnity);
 
 } // namespace donut::app

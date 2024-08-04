@@ -80,7 +80,7 @@ class DeviceManager_DX11 : public DeviceManager
     RefCountPtr<ID3D11Texture2D> m_D3D11BackBuffer;
 
     std::string m_RendererString;
-
+    void* m_ExternalDevice = nullptr;
 public:
     [[nodiscard]] const char* GetRendererString() const override
     {
@@ -90,6 +90,11 @@ public:
     [[nodiscard]] nvrhi::IDevice* GetDevice() const override
     {
         return m_NvrhiDevice;
+    }
+
+    DeviceManager_DX11(void* pExternalDevice)
+        : m_ExternalDevice(pExternalDevice)
+    { 
     }
 
     void BeginFrame() override;
@@ -274,17 +279,35 @@ bool DeviceManager_DX11::EnumerateAdapters(std::vector<AdapterInfo>& outAdapters
 
 bool DeviceManager_DX11::CreateDevice()
 {
-    int adapterIndex = m_DeviceParams.adapterIndex;
-    if (adapterIndex < 0)
-        adapterIndex = 0;
-
-    if (FAILED(m_DxgiFactory->EnumAdapters(adapterIndex, &m_DxgiAdapter)))
+    ID3D11Device* pExtDevice = static_cast<ID3D11Device*>(m_ExternalDevice);
+    if (pExtDevice)
     {
-        if (adapterIndex == 0)
-            donut::log::error("Cannot find any DXGI adapters in the system.");
-        else
-            donut::log::error("The specified DXGI adapter %d does not exist.", adapterIndex);
-        return false;
+        IDXGIDevice* pDXGIDevice = nullptr;
+        if (FAILED(pExtDevice->QueryInterface(__uuidof(IDXGIDevice), (void**)&pDXGIDevice)))
+        {
+            donut::log::error("Failed to get IDXGIDevice from the external device.");
+            return false;
+        }
+        if (FAILED(pDXGIDevice->GetAdapter(&m_DxgiAdapter)))
+        {
+            donut::log::error("Failed to get IDXGIAdapter from the external device.");
+            return false;
+        }
+    }
+    else
+    {
+        int adapterIndex = m_DeviceParams.adapterIndex;
+        if (adapterIndex < 0)
+            adapterIndex = 0;
+
+        if (FAILED(m_DxgiFactory->EnumAdapters(adapterIndex, &m_DxgiAdapter)))
+        {
+            if (adapterIndex == 0)
+                donut::log::error("Cannot find any DXGI adapters in the system.");
+            else
+                donut::log::error("The specified DXGI adapter %d does not exist.", adapterIndex);
+            return false;
+        }
     }
     
     {
@@ -295,26 +318,35 @@ bool DeviceManager_DX11::CreateDevice()
         m_IsNvidia = IsNvDeviceID(aDesc.VendorId);
     }
 
-    UINT createFlags = 0;
-    if (m_DeviceParams.enableDebugRuntime)
-        createFlags |= D3D11_CREATE_DEVICE_DEBUG;
-
-    const HRESULT hr = D3D11CreateDevice(
-        m_DxgiAdapter, // pAdapter
-        D3D_DRIVER_TYPE_UNKNOWN, // DriverType
-        nullptr, // Software
-        createFlags, // Flags
-        &m_DeviceParams.featureLevel, // pFeatureLevels
-        1, // FeatureLevels
-        D3D11_SDK_VERSION, // SDKVersion
-        &m_Device, // ppDevice
-        nullptr, // pFeatureLevel
-        &m_ImmediateContext // ppImmediateContext
-    );
-
-    if (FAILED(hr))
+    if (pExtDevice)
     {
-        return false;
+        m_Device = pExtDevice;
+        m_Device->GetImmediateContext(&m_ImmediateContext);
+        m_DeviceParams.enableDebugRuntime = false;
+    }
+    else
+    {
+        UINT createFlags = 0;
+        if (m_DeviceParams.enableDebugRuntime)
+            createFlags |= D3D11_CREATE_DEVICE_DEBUG;
+
+        const HRESULT hr = D3D11CreateDevice(
+            m_DxgiAdapter, // pAdapter
+            D3D_DRIVER_TYPE_UNKNOWN, // DriverType
+            nullptr, // Software
+            createFlags, // Flags
+            &m_DeviceParams.featureLevel, // pFeatureLevels
+            1, // FeatureLevels
+            D3D11_SDK_VERSION, // SDKVersion
+            &m_Device, // ppDevice
+            nullptr, // pFeatureLevel
+            &m_ImmediateContext // ppImmediateContext
+        );
+
+        if (FAILED(hr))
+        {
+            return false;
+        }
     }
 
     nvrhi::d3d11::DeviceDesc deviceDesc;
@@ -495,7 +527,7 @@ void DeviceManager_DX11::Present()
     m_SwapChain->Present(m_DeviceParams.vsyncEnabled ? 1 : 0, 0);
 }
 
-DeviceManager *DeviceManager::CreateD3D11()
+DeviceManager *DeviceManager::CreateD3D11(void* pExternalDevice)
 {
-    return new DeviceManager_DX11();
+    return new DeviceManager_DX11(pExternalDevice);
 }

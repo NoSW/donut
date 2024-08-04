@@ -93,6 +93,7 @@ class DeviceManager_DX12 : public DeviceManager
     nvrhi::DeviceHandle                         m_NvrhiDevice;
 
     std::string                                 m_RendererString;
+    void*                                       m_ExternalDevice = nullptr;
 
 public:
     const char *GetRendererString() const override
@@ -104,6 +105,9 @@ public:
     {
         return m_NvrhiDevice;
     }
+
+    DeviceManager_DX12(void* pExternalDevice)
+        : m_ExternalDevice(pExternalDevice) {}
 
     void ReportLiveObjects() override;
     bool EnumerateAdapters(std::vector<AdapterInfo>& outAdapters) override;
@@ -251,6 +255,8 @@ bool DeviceManager_DX12::EnumerateAdapters(std::vector<AdapterInfo>& outAdapters
 
 bool DeviceManager_DX12::CreateDevice()
 {
+    ID3D12Device* pExtDevice = static_cast<ID3D12Device*>(m_ExternalDevice);
+
     if (m_DeviceParams.enableDebugRuntime)
     {
         RefCountPtr<ID3D12Debug> pDebug;
@@ -260,17 +266,34 @@ bool DeviceManager_DX12::CreateDevice()
         pDebug->EnableDebugLayer();
     }
 
-    int adapterIndex = m_DeviceParams.adapterIndex;
-    if (adapterIndex < 0)
-        adapterIndex = 0;
-
-    if (FAILED(m_DxgiFactory2->EnumAdapters(adapterIndex, &m_DxgiAdapter)))
+    if (pExtDevice)
     {
-        if (adapterIndex == 0)
-            donut::log::error("Cannot find any DXGI adapters in the system.");
-        else
-            donut::log::error("The specified DXGI adapter %d does not exist.", adapterIndex);
-        return false;
+        IDXGIDevice* pDXGIDevice = nullptr;
+        if (FAILED(pExtDevice->QueryInterface(__uuidof(IDXGIDevice), (void**)&pDXGIDevice)))
+        {
+            donut::log::error("Failed to get IDXGIDevice from the external device.");
+            return false;
+        }
+        if (FAILED(pDXGIDevice->GetAdapter(&m_DxgiAdapter)))
+        {
+            donut::log::error("Failed to get IDXGIAdapter from the external device.");
+            return false;
+        }
+    }
+    else
+    {
+        int adapterIndex = m_DeviceParams.adapterIndex;
+        if (adapterIndex < 0)
+            adapterIndex = 0;
+
+        if (FAILED(m_DxgiFactory2->EnumAdapters(adapterIndex, &m_DxgiAdapter)))
+        {
+            if (adapterIndex == 0)
+                donut::log::error("Cannot find any DXGI adapters in the system.");
+            else
+                donut::log::error("The specified DXGI adapter %d does not exist.", adapterIndex);
+            return false;
+        }
     }
 
     {
@@ -281,12 +304,20 @@ bool DeviceManager_DX12::CreateDevice()
         m_IsNvidia = IsNvDeviceID(aDesc.VendorId);
     }
 
-    
-    HRESULT hr = D3D12CreateDevice(
-        m_DxgiAdapter,
-        m_DeviceParams.featureLevel,
-        IID_PPV_ARGS(&m_Device12));
-    HR_RETURN(hr)
+    HRESULT hr = 0;
+    if (pExtDevice)
+    {
+        m_Device12 = pExtDevice;
+        m_Device12->AddRef();
+    }
+    else
+    {
+        hr = D3D12CreateDevice(
+            m_DxgiAdapter,
+            m_DeviceParams.featureLevel,
+            IID_PPV_ARGS(&m_Device12));
+        HR_RETURN(hr)
+    }
 
     if (m_DeviceParams.enableDebugRuntime)
     {
@@ -633,7 +664,7 @@ void DeviceManager_DX12::Shutdown()
     }
 }
 
-DeviceManager *DeviceManager::CreateD3D12(void)
+DeviceManager *DeviceManager::CreateD3D12(void* pExternalDevice)
 {
-    return new DeviceManager_DX12();
+    return new DeviceManager_DX12(pExternalDevice);
 }

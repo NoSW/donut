@@ -1,9 +1,11 @@
+#pragma once
 #include <d3d11.h>
 #include <d3d11_1.h>
 #include <dxgi1_3.h>
 
-//#include <vulkan/vulkan.h>
-//#include <vulkan/vulkan_win32.h>
+#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_win32.h>
+
 enum TextureFormat
 {
     kTexFormatUnknown = -1,
@@ -108,77 +110,81 @@ enum TextureFormat
 
     kTexFormatTotalCount,
 };
-//
-//inline uint32_t get_vk_format(TextureFormat fmt)
-//{
-//    switch (fmt)
-//    {
-//    case kTexFormatAlpha8: return VK_FORMAT_R8_UNORM;
-//    case kTexFormatARGB4444: return VK_FORMAT_B4G4R4A4_UNORM_PACK16;
-//    case kTexFormatRGB24: return VK_FORMAT_R8G8B8_UNORM;
-//    case kTexFormatRGBA32: return VK_FORMAT_R8G8B8A8_UNORM;
-//    case kTexFormatARGB32: return VK_FORMAT_A8B8G8R8_UNORM_PACK32;
-//    case kTexFormatARGBFloat: return VK_FORMAT_R32G32B32A32_SFLOAT;
-//    case kTexFormatRGB565: return VK_FORMAT_R5G6B5_UNORM_PACK16;
-//    case kTexFormatBGR24: return VK_FORMAT_B8G8R8_UNORM;
-//    case kTexFormatR16: return VK_FORMAT_R16_UNORM;
-//    case kTexFormatDXT1: return VK_FORMAT_BC1_RGBA_UNORM_BLOCK;
-//    case kTexFormatDXT3: return VK_FORMAT_BC2_UNORM_BLOCK;
-//    case kTexFormatDXT5: return VK_FORMAT_BC3_UNORM_BLOCK;
-//    case kTexFormatRGBA4444: return VK_FORMAT_B4G4R4A4_UNORM_PACK16;
-//    case kTexFormatBGRA32: return VK_FORMAT_B8G8R8A8_UNORM;
-//    case kTexFormatRHalf: return VK_FORMAT_R16_SFLOAT;
-//    case kTexFormatRGHalf: return VK_FORMAT_R16G16_SFLOAT;
-//    case kTexFormatRGBAHalf: return VK_FORMAT_R16G16B16A16_SFLOAT;
-//    case kTexFormatRFloat: return VK_FORMAT_R32_SFLOAT;
-//    case kTexFormatRGFloat: return VK_FORMAT_R32G32_SFLOAT;
-//    case kTexFormatRGBAFloat: return VK_FORMAT_R32G32B32A32_SFLOAT;
-//    case kTexFormatYUY2: return VK_FORMAT_R8G8_UNORM;
-//    case kTexFormatRGB9e5Float: return VK_FORMAT_E5B9G9R9_UFLOAT_PACK32;
-//    case kTexFormatRGBFloat: return VK_FORMAT_R32G32B32_SFLOAT;
-//    case kTexFormatBC6H: return VK_FORMAT_BC6H_UFLOAT_BLOCK;
-//    case kTexFormatBC7: return VK_FORMAT_BC7_UNORM_BLOCK;
-//    case kTexFormatBC4: return VK_FORMAT_BC4_UNORM_BLOCK;
-//    case kTexFormatBC5: return VK_FORMAT_BC5_UNORM_BLOCK;
-//    case kTexFormatDXT1Crunched: return VK_FORMAT_BC1_RGBA_UNORM_BLOCK;
-//    case kTexFormatDXT5Crunched: return VK_FORMAT_BC3_UNORM_BLOCK;
-//    case kTexFormatPVRTC_RGB2: return VK_FORMAT_PVRTC1_2BPP_UNORM_BLOCK_IMG;
-//    case kTexFormatPVRTC_RGBA2: return VK_FORMAT_PVRTC1_2BPP_UNORM_BLOCK_IMG;
-//    case kTexFormatPVRTC_RGB4: return VK_FORMAT_PVRTC1_4BPP_UNORM_BLOCK_IMG;
-//    case kTexFormatPVRTC_RGBA4: return VK_FORMAT_PVRTC1_4BPP_UNORM_BLOCK_IMG;
-//    case kTexFormatETC_RGB4: return VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK;
-//    case kTexFormatEAC_R: return VK_FORMAT_EAC_R11_UNORM_BLOCK;
-//    case kTexFormatEAC_R_SIGNED: return VK_FORMAT_EAC_R11_SNORM_BLOCK;
-//    case kTexFormatEAC_RG: return VK_FORMAT_EAC_R11G11_UNORM_BLOCK;
-//    case kTexFormatEAC_RG_SIGNED: return VK_FORMAT_EAC_R11G11_SNORM_BLOCK;
-//    case kTexFormatETC2_RGB: return VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK;
-//    case kTexFormatETC2_RGBA1: return VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK;
-//    case kTexFormatETC2_RGBA8: return VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK;
-//    case kTexFormatASTC_4x4: return VK_FORMAT_ASTC_4x4_UNORM_BLOCK;
-//    case kTexFormatASTC_5x5: return VK_FORMAT_ASTC_5x5_UNORM_BLOCK;
-//    case kTexFormatASTC_6x6: return VK_FORMAT_ASTC_6x6_UNORM_BLOCK;
-//    case kTexFormatASTC_8x8: return VK_FORMAT_ASTC_8x8_UNORM_BLOCK;
-//    case kTexFormatASTC_10x10: return VK_FORMAT_ASTC_10x10_UNORM_BLOCK;
-//    case kTexFormatASTC_12x12: return VK_FORMAT_ASTC_12x12_UNORM_BLOCK;
-//    case kTexFormatETC_RGB4_3DS: return VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK;
-//    case kTexFormatETC_RGBA8_3DS: return VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK;
-//    case kTexFormatRG16: return VK_FORMAT_R16G16_UNORM;
-//    case kTexFormatR8: return VK_FORMAT_R8_UNORM;
-//    case kTexFormatETC_RGB4Crunched: return VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK;
-//    case kTexFormatETC2_RGBA8Crunched: return VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK;
-//    case kTexFormatASTC_HDR_4x4: return VK_FORMAT_ASTC_4x4_SRGB_BLOCK;
-//    case kTexFormatASTC_HDR_5x5: return VK_FORMAT_ASTC_5x5_SRGB_BLOCK;
-//    case kTexFormatASTC_HDR_6x6: return VK_FORMAT_ASTC_6x6_SRGB_BLOCK;
-//    case kTexFormatASTC_HDR_8x8: return VK_FORMAT_ASTC_8x8_SRGB_BLOCK;
-//    case kTexFormatASTC_HDR_10x10: return VK_FORMAT_ASTC_10x10_SRGB_BLOCK;
-//    case kTexFormatASTC_HDR_12x12: return VK_FORMAT_ASTC_12x12_SRGB_BLOCK;
-//    case kTexFormatRG32: return VK_FORMAT_R16G16_UNORM;
-//    case kTexFormatRGB48: return VK_FORMAT_R16G16B16_UNORM;
-//    case kTexFormatRGBA64: return VK_FORMAT_R16G16B16A16_UNORM;
-//    default: return VK_FORMAT_UNDEFINED;
-//    }
-//}
-//
+
+#if DONUT_WITH_VULKAN
+
+
+inline uint32_t get_vk_format(TextureFormat fmt)
+{
+    switch (fmt)
+    {
+    case kTexFormatAlpha8: return VK_FORMAT_R8_UNORM;
+    case kTexFormatARGB4444: return VK_FORMAT_B4G4R4A4_UNORM_PACK16;
+    case kTexFormatRGB24: return VK_FORMAT_R8G8B8_UNORM;
+    case kTexFormatRGBA32: return VK_FORMAT_R8G8B8A8_UNORM;
+    case kTexFormatARGB32: return VK_FORMAT_A8B8G8R8_UNORM_PACK32;
+    case kTexFormatARGBFloat: return VK_FORMAT_R32G32B32A32_SFLOAT;
+    case kTexFormatRGB565: return VK_FORMAT_R5G6B5_UNORM_PACK16;
+    case kTexFormatBGR24: return VK_FORMAT_B8G8R8_UNORM;
+    case kTexFormatR16: return VK_FORMAT_R16_UNORM;
+    case kTexFormatDXT1: return VK_FORMAT_BC1_RGBA_UNORM_BLOCK;
+    case kTexFormatDXT3: return VK_FORMAT_BC2_UNORM_BLOCK;
+    case kTexFormatDXT5: return VK_FORMAT_BC3_UNORM_BLOCK;
+    case kTexFormatRGBA4444: return VK_FORMAT_B4G4R4A4_UNORM_PACK16;
+    case kTexFormatBGRA32: return VK_FORMAT_B8G8R8A8_UNORM;
+    case kTexFormatRHalf: return VK_FORMAT_R16_SFLOAT;
+    case kTexFormatRGHalf: return VK_FORMAT_R16G16_SFLOAT;
+    case kTexFormatRGBAHalf: return VK_FORMAT_R16G16B16A16_SFLOAT;
+    case kTexFormatRFloat: return VK_FORMAT_R32_SFLOAT;
+    case kTexFormatRGFloat: return VK_FORMAT_R32G32_SFLOAT;
+    case kTexFormatRGBAFloat: return VK_FORMAT_R32G32B32A32_SFLOAT;
+    case kTexFormatYUY2: return VK_FORMAT_R8G8_UNORM;
+    case kTexFormatRGB9e5Float: return VK_FORMAT_E5B9G9R9_UFLOAT_PACK32;
+    case kTexFormatRGBFloat: return VK_FORMAT_R32G32B32_SFLOAT;
+    case kTexFormatBC6H: return VK_FORMAT_BC6H_UFLOAT_BLOCK;
+    case kTexFormatBC7: return VK_FORMAT_BC7_UNORM_BLOCK;
+    case kTexFormatBC4: return VK_FORMAT_BC4_UNORM_BLOCK;
+    case kTexFormatBC5: return VK_FORMAT_BC5_UNORM_BLOCK;
+    case kTexFormatDXT1Crunched: return VK_FORMAT_BC1_RGBA_UNORM_BLOCK;
+    case kTexFormatDXT5Crunched: return VK_FORMAT_BC3_UNORM_BLOCK;
+    case kTexFormatPVRTC_RGB2: return VK_FORMAT_PVRTC1_2BPP_UNORM_BLOCK_IMG;
+    case kTexFormatPVRTC_RGBA2: return VK_FORMAT_PVRTC1_2BPP_UNORM_BLOCK_IMG;
+    case kTexFormatPVRTC_RGB4: return VK_FORMAT_PVRTC1_4BPP_UNORM_BLOCK_IMG;
+    case kTexFormatPVRTC_RGBA4: return VK_FORMAT_PVRTC1_4BPP_UNORM_BLOCK_IMG;
+    case kTexFormatETC_RGB4: return VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK;
+    case kTexFormatEAC_R: return VK_FORMAT_EAC_R11_UNORM_BLOCK;
+    case kTexFormatEAC_R_SIGNED: return VK_FORMAT_EAC_R11_SNORM_BLOCK;
+    case kTexFormatEAC_RG: return VK_FORMAT_EAC_R11G11_UNORM_BLOCK;
+    case kTexFormatEAC_RG_SIGNED: return VK_FORMAT_EAC_R11G11_SNORM_BLOCK;
+    case kTexFormatETC2_RGB: return VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK;
+    case kTexFormatETC2_RGBA1: return VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK;
+    case kTexFormatETC2_RGBA8: return VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK;
+    case kTexFormatASTC_4x4: return VK_FORMAT_ASTC_4x4_UNORM_BLOCK;
+    case kTexFormatASTC_5x5: return VK_FORMAT_ASTC_5x5_UNORM_BLOCK;
+    case kTexFormatASTC_6x6: return VK_FORMAT_ASTC_6x6_UNORM_BLOCK;
+    case kTexFormatASTC_8x8: return VK_FORMAT_ASTC_8x8_UNORM_BLOCK;
+    case kTexFormatASTC_10x10: return VK_FORMAT_ASTC_10x10_UNORM_BLOCK;
+    case kTexFormatASTC_12x12: return VK_FORMAT_ASTC_12x12_UNORM_BLOCK;
+    case kTexFormatETC_RGB4_3DS: return VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK;
+    case kTexFormatETC_RGBA8_3DS: return VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK;
+    case kTexFormatRG16: return VK_FORMAT_R16G16_UNORM;
+    case kTexFormatR8: return VK_FORMAT_R8_UNORM;
+    case kTexFormatETC_RGB4Crunched: return VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK;
+    case kTexFormatETC2_RGBA8Crunched: return VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK;
+    case kTexFormatASTC_HDR_4x4: return VK_FORMAT_ASTC_4x4_SRGB_BLOCK;
+    case kTexFormatASTC_HDR_5x5: return VK_FORMAT_ASTC_5x5_SRGB_BLOCK;
+    case kTexFormatASTC_HDR_6x6: return VK_FORMAT_ASTC_6x6_SRGB_BLOCK;
+    case kTexFormatASTC_HDR_8x8: return VK_FORMAT_ASTC_8x8_SRGB_BLOCK;
+    case kTexFormatASTC_HDR_10x10: return VK_FORMAT_ASTC_10x10_SRGB_BLOCK;
+    case kTexFormatASTC_HDR_12x12: return VK_FORMAT_ASTC_12x12_SRGB_BLOCK;
+    case kTexFormatRG32: return VK_FORMAT_R16G16_UNORM;
+    case kTexFormatRGB48: return VK_FORMAT_R16G16B16_UNORM;
+    case kTexFormatRGBA64: return VK_FORMAT_R16G16B16A16_UNORM;
+    default: return VK_FORMAT_UNDEFINED;
+    }
+}
+#endif
+
 //inline uint32_t get_dxgi_format(TextureFormat fmt)
 //{
 //    switch (fmt)

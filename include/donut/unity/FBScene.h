@@ -1,12 +1,17 @@
 #pragma once
-#include "Scene.h"
+#include <donut/engine/Scene.h>
 
 namespace donut::engine
+{
+class SceneTypeFactory;
+}
+
+
+namespace donut::unity
 {
 using float2 = dm::float2;
 using float3 = dm::float3;
 using float4 = dm::float4;
-class SceneTypeFactory;
 class FBScene
 {
 public:
@@ -255,7 +260,7 @@ public:
         bool IsSRGB() const { return (flags & TF_sRGB) != 0; }
     };
 
-    bool IsMaterialTexture(int index) const { return index >= Scene::kSharedTextureName_Count; }
+    bool IsMaterialTexture(int index) const { return index >= donut::engine::Scene::kSharedTextureName_Count; }
 
     struct FBMaterial
     {
@@ -324,11 +329,11 @@ public:
 public:
     FBScene(const uint8_t* pData, uint32_t size);
     bool GetSceneData(
-        std::shared_ptr<SceneTypeFactory> pSTF,
-        TextureCache& textureCache,
-        SceneLoadingStats& stats,
+        std::shared_ptr<donut::engine::SceneTypeFactory> pSTF,
+        donut::engine::TextureCache& textureCache,
+        donut::engine::SceneLoadingStats& stats,
         tf::Executor* executor,
-        SceneImportResult& result,
+        donut::engine::SceneImportResult& result,
         std::vector<void*>& outSharedHandles);
 };
 

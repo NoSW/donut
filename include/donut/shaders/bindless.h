@@ -46,7 +46,7 @@ struct GeometryData
 
 struct InstanceData
 {
-    uint padding;
+    float emissionBoost;
     uint firstGeometryInstanceIndex; // index into global list of geometry instances. 
                                      // foreach (Instance)
                                      //     foreach(Geo) index++
@@ -57,7 +57,10 @@ struct InstanceData
 
     float3x4 transform;
     float3x4 prevTransform;
+    float4 lightmapST;
 };
+
+static const float c_SizeOfLightmapAtlas = 2048.0f;
 
 #ifndef __cplusplus
 
@@ -99,14 +102,16 @@ InstanceData LoadInstanceData(ByteAddressBuffer buffer, uint offset)
     uint4 e = buffer.Load4(offset + 16 * 4);
     uint4 f = buffer.Load4(offset + 16 * 5);
     uint4 g = buffer.Load4(offset + 16 * 6);
+    uint4 h = buffer.Load4(offset + 16 * 7);
 
     InstanceData ret;
-    ret.padding = a.x;
+    ret.emissionBoost = a.x;
     ret.firstGeometryInstanceIndex = a.y;
     ret.firstGeometryIndex = a.z;
     ret.numGeometries = a.w;
     ret.transform = float3x4(asfloat(b), asfloat(c), asfloat(d));
     ret.prevTransform = float3x4(asfloat(e), asfloat(f), asfloat(g));
+    ret.lightmapST = asfloat(h);
     return ret;
 }
 

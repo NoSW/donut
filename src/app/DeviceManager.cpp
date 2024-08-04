@@ -48,9 +48,11 @@ freely, subject to the following restrictions:
 */
 
 #include <donut/app/DeviceManager.h>
-#include <donut/app/UnityApi.h>
 #include <donut/core/math/math.h>
 #include <donut/core/log.h>
+#if DONUT_WITH_UNITY
+#include <donut/unity/UnityApi.h>
+#endif
 #include <nvrhi/utils.h>
 
 #include <cstdio>
@@ -454,11 +456,15 @@ void DeviceManager::UpdateAverageFrameTime(double elapsedTime)
 void DeviceManager::RunMessageLoop()
 {
     m_PreviousFrameTimestamp = glfwGetTime();
-    auto* pUnity = UnityApi::GetApiInstance();
+
+#if DONUT_WITH_UNITY
+    auto* pUnity = unity::UnityApi::GetApiInstance();
+#endif
     while(m_DeviceParams.headlessDevice || !glfwWindowShouldClose(m_Window))
     {
+#if DONUT_WITH_UNITY
         if (pUnity && pUnity->ShouldExit()) { break; }
-
+#endif
         if (m_callbacks.beforeFrame) m_callbacks.beforeFrame(*this);
 
         glfwPollEvents();
@@ -793,21 +799,21 @@ void DeviceManager::SetInformativeWindowTitle(const char* applicationName, const
     SetWindowTitle(ss.str().c_str());
 }
 
-donut::app::DeviceManager* donut::app::DeviceManager::Create(nvrhi::GraphicsAPI api)
+donut::app::DeviceManager* donut::app::DeviceManager::Create(nvrhi::GraphicsAPI api, void* pExternalDevice)
 {
     switch (api)
     {
 #if DONUT_WITH_DX11
     case nvrhi::GraphicsAPI::D3D11:
-        return CreateD3D11();
+        return CreateD3D11(pExternalDevice);
 #endif
 #if DONUT_WITH_DX12
     case nvrhi::GraphicsAPI::D3D12:
-        return CreateD3D12();
+        return CreateD3D12(pExternalDevice);
 #endif
 #if DONUT_WITH_VULKAN
     case nvrhi::GraphicsAPI::VULKAN:
-        return CreateVK();
+        return CreateVK(pExternalDevice);
 #endif
     default:
         log::error("DeviceManager::Create: Unsupported Graphics API (%d)", api);

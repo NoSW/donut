@@ -233,4 +233,6 @@ namespace donut::engine
     {
         return primary ? primary : secondary;
     }
+
+    inline constexpr uint32_t kLightmapAtlasSize = 2048;
 }

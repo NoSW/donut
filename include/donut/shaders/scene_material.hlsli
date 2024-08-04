@@ -47,7 +47,7 @@ MaterialTextureSample DefaultMaterialTextures()
 {
     MaterialTextureSample values;
     values.baseOrDiffuse = 1.0;
-    values.metalRoughOrSpecular = 1.0;
+    values.metalRoughOrSpecular = 0;
     values.emissive = 1.0;
     values.normal = float4(0.5, 0.5, 1.0, 0.0);
     values.occlusion = 1.0;

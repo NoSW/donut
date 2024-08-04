@@ -3,6 +3,7 @@
 #ifndef __cplusplus
     #include <stdbool.h>
 #endif
+#include <d3d12.h>
 
 struct RenderSurfaceBase;
 typedef struct RenderSurfaceBase* UnityRenderBuffer;

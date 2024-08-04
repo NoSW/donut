@@ -1,12 +1,13 @@
-#include <donut/engine/FBScene.h>
+#include <donut/unity/FBScene.h>
 #include <donut/engine/SceneGraph.h>
 #include <donut/engine/TextureCache.h>
 #include <donut/core/log.h>
-#include "../app/Unity/IUnityFormat.h"
+#include "../unity/Unity/IUnityFormat.h"
 #include <unordered_map>
-namespace donut::engine
-{
 
+using namespace donut::engine;
+namespace donut::unity
+{
 FBScene::FBScene(const uint8_t* pData, uint32_t size)
 {
     std::memcpy(&setting, pData, sizeof(FBGlobalSetting));
@@ -223,7 +224,7 @@ bool FBScene::GetSceneData(
         minfo->name = std::to_string(mesh.unityID);
     #endif
 
-        for (int i = totalVertices; i < mesh.vertexCount; i++)
+        for (uint32_t i = totalVertices; i < mesh.vertexCount; i++)
         {
             dm::float3 pos(buffers->positionData[i].x, buffers->positionData[i].y, buffers->positionData[i].z);
             bounds |= pos;

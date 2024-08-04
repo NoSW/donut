@@ -36,7 +36,7 @@ this software is released into the Public Domain.
 
 #include <donut/engine/Scene.h>
 #include <donut/engine/GltfImporter.h>
-#include <donut/engine/FBScene.h>
+#include <donut/unity/FBScene.h>
 #include <donut/core/json.h>
 #include <donut/core/log.h>
 #include <donut/core/string_utils.h>
@@ -141,7 +141,7 @@ bool Scene::LoadFBScene(const std::filesystem::path& fbFileName)
         std::vector<uint8_t> buffer(fileSize);
         ifs.read(reinterpret_cast<char*>(buffer.data()), fileSize);
         ifs.close();
-        return LoadFBSceneFromMemory(buffer.data(), buffer.size());
+        return LoadFBSceneFromMemory(buffer.data(), (uint32_t)buffer.size());
     }
     log::error("File not found: %s", fbFileName.string().c_str());
     return false;
@@ -153,7 +153,7 @@ bool Scene::LoadFBSceneFromMemory(const uint8_t* data, uint32_t size)
     g_LoadingStats.ObjectsTotal = 0;
 
     ++g_LoadingStats.ObjectsTotal;
-    FBScene fbscene(data, size);
+    unity::FBScene fbscene(data, size);
     SceneImportResult result;
     std::vector<void*> sharedHandles;
     if (!fbscene.GetSceneData(m_SceneTypeFactory, *m_TextureCache, g_LoadingStats, nullptr, result, sharedHandles))
@@ -1271,5 +1271,7 @@ void Scene::UpdateInstance(const std::shared_ptr<MeshInstance>& instance)
     idata.firstGeometryInstanceIndex = instance->GetGeometryInstanceIndex();
     idata.firstGeometryIndex = mesh->geometries[0]->globalGeometryIndex;
     idata.numGeometries = uint32_t(mesh->geometries.size());
-    idata.padding = 0u;
+    idata.emissionBoost = 1.0f;
+    uint4 st = instance->GetLightmapST();
+    idata.lightmapST = float4((float)st.x, (float)st.y, (float)st.z, (float)st.w) / float(kLightmapAtlasSize);
 }

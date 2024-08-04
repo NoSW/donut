@@ -44,7 +44,6 @@ static const int MaterialFlags_PanguScenePBR = 1;
 static const int MaterialFlags_TreeLeafV7 = 2;
 static const int MaterialFlags_MeshTilling = 3;
 static const int MaterialFlags_TerrainSplat = 4;
-static const int MaterialFlags_PackedUnity = 5;
 
 // NOTE: adjust LoadMaterialConstants(...) in bindless.h when changing this structure
 

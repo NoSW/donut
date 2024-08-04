@@ -83,6 +83,8 @@ namespace donut::engine
         friend class SceneGraph;
         int m_InstanceIndex = -1;
         int m_GeometryInstanceIndex = -1;
+        int m_LightmapIndex = -1;
+        dm::uint4 m_LightmapST = dm::uint4(0, 0, 0, 0); 
 
     protected:
         std::shared_ptr<MeshInfo> m_Mesh;
@@ -94,11 +96,21 @@ namespace donut::engine
 
         [[nodiscard]] const std::shared_ptr<MeshInfo>& GetMesh() const { return m_Mesh; }
         [[nodiscard]] int GetInstanceIndex() const { return m_InstanceIndex; }
+        [[nodiscard]] dm::uint4 GetLightmapST() const { return m_LightmapST; }
+        [[nodiscard]] int GetLightmapIndex() const { return m_LightmapIndex; }
         [[nodiscard]] int GetGeometryInstanceIndex() const { return m_GeometryInstanceIndex; }
         [[nodiscard]] dm::box3 GetLocalBoundingBox() override { return m_Mesh->objectSpaceBounds; }
         [[nodiscard]] std::shared_ptr<SceneGraphLeaf> Clone() override;
         [[nodiscard]] SceneContentFlags GetContentFlags() const override;
         bool SetProperty(const std::string& name, const dm::float4& value) override;
+        void SetLightmapIndex(int index) { m_LightmapIndex = index; }
+        void SetLightmapST(const dm::uint4& st) { m_LightmapST = st; }
+        void SetNewLightmapRes(uint32_t res) 
+        {
+            res = std::clamp(res, 0u, kLightmapAtlasSize);
+            m_LightmapIndex = -1;
+            m_LightmapST = dm::uint4(res, res, 0, 0);
+        }
     };
 
     struct SkinnedMeshJoint
@@ -577,6 +589,7 @@ namespace donut::engine
         std::vector<std::shared_ptr<SceneGraphAnimation>> m_Animations;
         std::vector<std::shared_ptr<SceneCamera>> m_Cameras;
         std::vector<std::shared_ptr<Light>> m_Lights;
+        bool m_LightmapPackDirty = true;
         
     protected:
         virtual void RegisterLeaf(const std::shared_ptr<SceneGraphLeaf>& leaf);

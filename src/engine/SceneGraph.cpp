@@ -24,7 +24,8 @@
 #include <donut/core/log.h>
 #include <donut/core/json.h>
 #include <sstream>
-
+#define STB_RECT_PACK_IMPLEMENTATION
+#include <stb_rect_pack.h>
 using namespace donut::engine;
 
 const std::string& SceneGraphLeaf::GetName() const
@@ -1125,6 +1126,15 @@ void SceneGraph::Refresh(uint32_t frameIndex)
             ++materialIndex;
         }
     }
+
+    if (m_LightmapPackDirty)
+    {
+        m_LightmapPackDirty = false;
+
+        // TODO:
+        // assign m_MeshInstances
+    }
+
 }
 
 std::shared_ptr<SceneGraphLeaf> SceneTypeFactory::CreateLeaf(const std::string& type)

@@ -53,7 +53,7 @@ option(DONUT_WITH_MINIZ "Include miniz (support for zip archives)" ON)
 option(DONUT_WITH_TASKFLOW "Include TaskFlow" ON)
 option(DONUT_WITH_TINYEXR "Include TinyEXR" ON)
 option(DONUT_WITH_UNIT_TESTS "Donut unit-tests (see CMake/CTest documentation)" OFF)
-
+option(DONUT_WITH_UNITY "Donut with support for unity native plugin" ON)
 add_subdirectory(thirdparty)
 
 if (NOT TARGET ShaderMake)
@@ -81,6 +81,9 @@ if (DONUT_WITH_NVRHI)
     include(donut-engine.cmake)
     include(donut-render.cmake)
     include(donut-app.cmake)
+    if (DONUT_WITH_UNITY)
+        include(donut-unity.cmake)
+    endif()
 endif()
 
 if (DONUT_WITH_UNIT_TESTS)

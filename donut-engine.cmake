@@ -62,6 +62,7 @@ set_target_properties(donut_engine PROPERTIES FOLDER Donut)
 target_compile_definitions(donut_engine PUBLIC DONUT_WITH_DX11=$<BOOL:${DONUT_WITH_DX11}>)
 target_compile_definitions(donut_engine PUBLIC DONUT_WITH_DX12=$<BOOL:${DONUT_WITH_DX12}>)
 target_compile_definitions(donut_engine PUBLIC DONUT_WITH_VULKAN=$<BOOL:${DONUT_WITH_VULKAN}>)
+target_compile_definitions(donut_engine PUBLIC DONUT_WITH_UNITY=$<BOOL:${DONUT_WITH_UNITY}>)
 target_compile_definitions(donut_engine PUBLIC DONUT_WITH_STATIC_SHADERS=$<BOOL:${DONUT_WITH_STATIC_SHADERS}>)
 
 if (DONUT_WITH_STATIC_SHADERS)
