@@ -62,6 +62,8 @@ namespace donut::engine
         if (doubleSided)
             constants.flags |= MaterialFlags_DoubleSided;
 
+        constants.flags |= (hookMaterialType << kHookMaterialTypeOffset);
+
         // free parameters
 
         constants.domain = (int)domain;

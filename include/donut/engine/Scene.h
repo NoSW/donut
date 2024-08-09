@@ -67,6 +67,8 @@ namespace donut::engine
         nvrhi::BufferHandle m_MaterialBuffer;
         nvrhi::BufferHandle m_GeometryBuffer;
         nvrhi::BufferHandle m_InstanceBuffer;
+        nvrhi::BufferHandle m_IndirectArgsBuffer;
+        nvrhi::BufferHandle m_DrawIDBuffer;
 
         nvrhi::DeviceHandle m_Device;
         nvrhi::ShaderHandle m_SkinningShader;
@@ -97,18 +99,21 @@ namespace donut::engine
         void UpdateMaterial(const std::shared_ptr<Material>& material);
         void UpdateGeometry(const std::shared_ptr<MeshInfo>& mesh);
         void UpdateInstance(const std::shared_ptr<MeshInstance>& instance);
+        void UpdateDraw();
 
         void UpdateSkinnedMeshes(nvrhi::ICommandList* commandList, uint32_t frameIndex);
 
         void WriteMaterialBuffer(nvrhi::ICommandList* commandList) const;
         void WriteGeometryBuffer(nvrhi::ICommandList* commandList) const;
         void WriteInstanceBuffer(nvrhi::ICommandList* commandList) const;
+        void WriteDrawBuffer(nvrhi::ICommandList* commandList) const;
 
         virtual void CreateMeshBuffers(nvrhi::ICommandList* commandList);
         virtual nvrhi::BufferHandle CreateMaterialBuffer();
         virtual nvrhi::BufferHandle CreateGeometryBuffer();
         virtual nvrhi::BufferHandle CreateInstanceBuffer();
         virtual nvrhi::BufferHandle CreateMaterialConstantBuffer(const std::string& debugName);
+        virtual std::pair<nvrhi::BufferHandle, nvrhi::BufferHandle> CreateDrawBuffer();
 
         virtual bool LoadCustomData(Json::Value& rootNode, tf::Executor* executor);
     public:
@@ -148,15 +153,8 @@ namespace donut::engine
         [[nodiscard]] nvrhi::IBuffer* GetMaterialBuffer() const { return m_MaterialBuffer; }
         [[nodiscard]] nvrhi::IBuffer* GetGeometryBuffer() const { return m_GeometryBuffer; }
         [[nodiscard]] nvrhi::IBuffer* GetInstanceBuffer() const { return m_InstanceBuffer; }
-
-        enum SharedTextureName
-        {
-            kSharedTextureName_KeyBuf = 0,
-            kSharedTextureName_Tex0,
-            kSharedTextureName_Tex1,
-            kSharedTextureName_LightmapSS,
-            kSharedTextureName_LightmapDirSS,
-            kSharedTextureName_Count,
-        };
+        [[nodiscard]] nvrhi::IBuffer* GetIndirectArgsBuffer() const { return m_IndirectArgsBuffer; }
+        [[nodiscard]] nvrhi::IBuffer* GetDrawIDBuffer() const { return m_DrawIDBuffer; }
+        [[nodiscard]] uint32_t GetDrawCount() const;
     };
 }

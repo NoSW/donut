@@ -54,6 +54,8 @@ namespace donut::app
         void SetMoveSpeed(float value) { m_MoveSpeed = value; }
         float GetMoveSpeed() const { return m_MoveSpeed; }
         void SetRotateSpeed(float value) { m_RotateSpeed = value; }
+        void SetPosition(dm::float3 position) { m_CameraPos = position; }
+        void SetRotation(dm::float4 rotation);
 
         [[nodiscard]] const dm::affine3& GetWorldToViewMatrix() const { return m_MatWorldToView; }
         [[nodiscard]] const dm::affine3& GetTranslatedWorldToViewMatrix() const { return m_MatTranslatedWorldToView; }

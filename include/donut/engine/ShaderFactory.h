@@ -78,6 +78,8 @@ namespace donut::engine
     //      CreateStaticPlatformShader(DONUT_MAKE_PLATFORM_SHADER(g_MyShader), defines, shaderDesc);
     // and all available platforms will be resolved automatically.
     #define DONUT_MAKE_PLATFORM_SHADER(basename) DONUT_MAKE_DXBC_SHADER(basename##_dxbc), DONUT_MAKE_DXIL_SHADER(basename##_dxil), DONUT_MAKE_SPIRV_SHADER(basename##_spirv)
+    #define MAKE_PASS_SHADER(prefix, basename, entry) prefix ###basename, entry, DONUT_MAKE_PLATFORM_SHADER(g_##basename)
+#define MAKE_PASS_SHADER_CONCAT_ENTRY(prefix, basename, entry) prefix ###basename, #entry, DONUT_MAKE_PLATFORM_SHADER(g_##basename##_##entry)
 
     // Similar to DONUT_MAKE_PLATFORM_SHADER but for libraries - they are not available on DX11/DXBC.
     //      CreateStaticPlatformShaderLibrary(DONUT_MAKE_PLATFORM_SHADER_LIBRARY(g_MyShaderLibrary), defines);

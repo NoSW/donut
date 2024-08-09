@@ -107,6 +107,7 @@ namespace donut::engine
         void FinalizeTexture(std::shared_ptr<TextureData> texture, CommonRenderPasses* passes, nvrhi::ICommandList* commandList);
         virtual void TextureLoaded(std::shared_ptr<TextureData> texture);
         virtual std::shared_ptr<TextureData> CreateTextureData();
+        std::shared_ptr<LoadedTexture> LoadExternalTexture(bool bExportable, bool bNative, void* handle, const std::string& debugName, int w, int h, int mip, nvrhi::Format format, bool sRGB);
 
     public:
         TextureCache(nvrhi::IDevice* device, std::shared_ptr<vfs::IFileSystem> fs, std::shared_ptr<DescriptorTableManager> descriptorTable);
@@ -121,6 +122,22 @@ namespace donut::engine
 
         // Synchronous read and decode, deferred upload and mip generation (in the ProcessRenderingThreadCommands queue).
         std::shared_ptr<LoadedTexture> LoadTextureFromFileDeferred(const std::filesystem::path& path, bool sRGB);
+
+        // 
+        std::shared_ptr<LoadedTexture> CreateExportableSharedTexture(const std::string& debugName, int w, int h, int mip, nvrhi::Format format, bool sRGB)
+        {
+            return LoadExternalTexture(true, false, nullptr, debugName, w, h, mip, format, sRGB);
+        }
+        
+        std::shared_ptr<LoadedTexture> LoadTextureFromSharedHandle(void* handle, const std::string& debugName, int w, int h, int mip, nvrhi::Format format, bool sRGB)
+        {
+            return LoadExternalTexture(false, false, handle, debugName, w, h, mip, format, sRGB);
+        }
+
+        std::shared_ptr<LoadedTexture> LoadTextureFromNativeHandle(void* nativeHandle, const std::string& debugName, int w, int h, int mip, nvrhi::Format format, bool sRGB)
+        {
+            return LoadExternalTexture(false, true, nativeHandle, debugName, w, h, mip, format, sRGB);
+        }
 
 #ifdef DONUT_WITH_TASKFLOW
         // Asynchronous read and decode, deferred upload and mip generation (in the ProcessRenderingThreadCommands queue).

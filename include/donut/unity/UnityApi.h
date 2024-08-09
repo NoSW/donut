@@ -1,5 +1,6 @@
 #pragma once
 #include <donut/core/log.h>
+#include <donut/unity/TaskScheduler.h>
 #include <nvrhi/nvrhi.h>
 #include <cmath>
 #include <filesystem>
@@ -12,6 +13,17 @@ struct IUnityInterfaces;
 struct IUnityGraphics;
 namespace donut::unity
 {
+using HANDLE = void*;
+
+struct BridgeSetupData
+{
+    void* handleUAVs[5] = { nullptr, nullptr, nullptr, nullptr, nullptr };
+    const void* pSceneData = nullptr;
+    const char* importFolder = nullptr;
+    const char* exportFolder = nullptr;
+    uint32_t sceneDataBytes = 0;
+    void* pExternalDevice = nullptr;
+};
 
 struct UnityTexDesc
 {
@@ -35,63 +47,60 @@ struct UnityBufDesc
 
 class UnityApi
 {
-protected:
-    static uint32_t _clamp(uint32_t w, uint32_t h, uint32_t mipIndex)
-    {
-        return std::min(mipIndex, (uint32_t)std::log2(std::min(w, h)));
-    }
-
-    static void logError(const char* msg)
-    {
-        OutputDebugStringA(msg);
-    }
-
 public:
-	UnityApi(IUnityInterfaces* pUnity) : mpUnity(pUnity) { }
+    UnityApi(IUnityInterfaces* pUnity);
+    ~UnityApi();
     virtual void initialize()  {}
-    virtual void shutdown() { ExitBakerThread(); }
+    virtual void shutdown() { ExitBakerThread(true); }
     virtual void* createSharedTexSrc(UnityTexDesc desc) = 0;
     virtual void* createSharedTexDst(UnityTexDesc desc) = 0;
     virtual void* createSharedBufSrc(UnityBufDesc desc) = 0;
     virtual void* createSharedBufDst(UnityBufDesc desc) = 0;
-    virtual uint32_t getFormat(uint32_t format) = 0;
-    virtual void getSharedBufferHandleWin32(void* nativeBuf, HANDLE& handle) = 0;
-    virtual void getSharedTextureHandleWin32(void* nativeTex, HANDLE& handle) = 0;
+    virtual uint32_t getNativeFormat(uint32_t format) = 0;
+    virtual bool checkUnityFormat(uint32_t format) { return getNativeFormat(format) != 0; }
+    void SetLogCallback(void* p) { pUnityLogCallBake = (void(*)(int, const char*))p; }
+    void Log(log::Severity severity, const char* message) const;
+    static UnityApi* Ins();
 
-    static UnityApi* GetApiInstance();
-public:
-
+public: // unity thread calls
     void LaunchBakerThread(bool headless);
-	void* GetSrcTexData() { return mOwnedTexPtrs.empty() ? nullptr : mOwnedTexPtrs.data(); }
-	void* GetSrcBufData() { return mOwnedBufPtrs.empty() ? nullptr : mOwnedBufPtrs.data(); }
-	void* GetDstTexData() { return mDstTexPtrs.empty() ? nullptr : mDstTexPtrs.data(); }
-    virtual nvrhi::GraphicsAPI GetPreferredAPIByUnityGfxAPI(void*& pOutUnityDevice) const { return nvrhi::GraphicsAPI::D3D12; pOutUnityDevice = nullptr; }
-    std::filesystem::path GetPluginFolder() { return mPluginFolder; }
-	std::filesystem::path GetTempImportFolder() { return mTempImportFolder; }
-	std::filesystem::path GetTempExportFolder() { return mTempExportFolder; }
-    bool HasValidPluginFolder() { return std::filesystem::exists(mPluginFolder) && std::filesystem::is_directory(mPluginFolder); }
-	bool HasValidTempImportFolder() { return std::filesystem::exists(mTempImportFolder) && std::filesystem::is_directory(mTempImportFolder); }
-	bool HasValidTempExportFolder() { return std::filesystem::exists(mTempExportFolder) && std::filesystem::is_directory(mTempExportFolder); }
-    void SetFolders(char* pluginFolder, char* tempImportFolder, char* tempExportFolder);
-    void ExitBakerThread() { if (mpBakeThread) { mShouldExit = true; } }
-    bool ShouldExit() { return mShouldExit; }
+    void ExitBakerThread(bool bForce);
+    void WaitForBakerThread(long long timeout) { std::unique_lock<std::mutex> lock(mMutex); mCVar.wait_for(lock, std::chrono::seconds(timeout), [this] { return !IsBakerThreadRunning(); }); }
+    bool IsBakerThreadRunning() const;
+    bool RequestExitBakerThread() { return mRequestExitBakerThread; }
+    void PushTask(uint32_t type, uint8_t* ptr, uint32_t bytes);
+    void FlushTasks(uint64_t timeout);
+
+public: // baker thread calls
+    bool PopTask(BridgeTask& task) { return mTaskScheduler.PopTask(task); }
+    size_t GetApproxTaskCount() const { return mTaskScheduler.GetApproxTaskCount(); }
     static int (*ThreadEntryPtr)(bool);
+    void NotifyUnityMainThread() { mCVar.notify_all(); }
+    virtual nvrhi::GraphicsAPI GetPreferredAPIByUnityGfxAPI() const { return nvrhi::GraphicsAPI::D3D12; }
+	std::filesystem::path GetTempImportFolder() { return checkFolderPath(gSetupData.importFolder) ? std::filesystem::path(gSetupData.importFolder) : std::filesystem::path{}; }
+    std::filesystem::path GetTempExportFolder() { return checkFolderPath(gSetupData.exportFolder) ? std::filesystem::path(gSetupData.exportFolder) : std::filesystem::path{}; }
+
+private:
+    static bool checkFolderPath(const char* path);
+    
+public:
+    BridgeSetupData gSetupData;
+
 protected:
     std::vector<void*> mOwnedTexPtrs;
     std::vector<void*> mOwnedBufPtrs;
 	std::vector<void*> mDstTexPtrs;
 
-public:
     IUnityInterfaces* mpUnity = nullptr;
     IUnityGraphics* mpUnityGraphics = nullptr;
-    std::unique_ptr<std::thread> mpBakeThread;
-	std::mutex mMutex;
-	std::condition_variable mCVar;
-    bool mShouldExit = false;
-    std::filesystem::path mPluginFolder;
-	std::filesystem::path mTempImportFolder;
-	std::filesystem::path mTempExportFolder;
+    TaskScheduler mTaskScheduler;
 
+private:
+    std::unique_ptr<std::thread> mpBakeThread;
+	std::condition_variable mCVar;
+	std::mutex mMutex;
+    bool mRequestExitBakerThread = false;
+    void (*pUnityLogCallBake)(int, const char*) = nullptr;
 };
 
 UnityApi* CreateUnityVulkan(IUnityInterfaces* pUnity);

@@ -14,6 +14,7 @@
 
 namespace donut::unity
 {
+uint32_t get_dxgi_format(TextureFormat fmt);
 
     class UnityD3D12 : public UnityApi
     {
@@ -29,7 +30,7 @@ namespace donut::unity
             UnityApi::shutdown();
         }
 
-        uint32_t getFormat(uint32_t format) override { return 0; }// get_dxgi_format((TextureFormat)format); }
+        uint32_t getNativeFormat(uint32_t format) override { return get_dxgi_format((TextureFormat)format); }
 
         void* createSharedTexSrc(UnityTexDesc inDesc) override
         {
@@ -45,13 +46,7 @@ namespace donut::unity
 
         void* createSharedBufSrc(UnityBufDesc desc) override { return nullptr; }
         void* createSharedBufDst(UnityBufDesc desc) override { return nullptr; }
-        void getSharedBufferHandleWin32(void* nativeBuf, HANDLE& handle) override { handle = nullptr; }
-        void getSharedTextureHandleWin32(void* nativeTex, HANDLE& handle) override { handle = nullptr; }
-        nvrhi::GraphicsAPI GetPreferredAPIByUnityGfxAPI(void*& pOutUnityDevice) const override
-        {
-            pOutUnityDevice = mpDevice;
-            return nvrhi::GraphicsAPI::D3D12;
-        }
+        nvrhi::GraphicsAPI GetPreferredAPIByUnityGfxAPI() const override { return nvrhi::GraphicsAPI::D3D12; }
 
     private:
         ID3D12Device* mpDevice = nullptr;

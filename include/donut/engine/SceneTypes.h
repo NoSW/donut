@@ -146,6 +146,7 @@ namespace donut::engine
         int materialID = 0;
         bool dirty = true; // set this to true to make Scene udpate the material data
         int32_t unityID = 0;
+        int hookMaterialType = 0;
 
         virtual ~Material() = default;
         void FillConstantBuffer(struct MaterialConstants& constants) const;

@@ -52,6 +52,7 @@ freely, subject to the following restrictions:
 #include <unordered_set>
 
 #include <donut/app/DeviceManager.h>
+#include <donut/unity/UnityApi.h>
 
 #include <nvrhi/vulkan.h>
 #include <nvrhi/validation.h>
@@ -83,8 +84,6 @@ public:
     {
         return nvrhi::GraphicsAPI::VULKAN;
     }
-
-    DeviceManager_VK(void* pExternalDevice) : m_ExternalDevice(pExternalDevice) {}
 
     bool EnumerateAdapters(std::vector<AdapterInfo>& outAdapters) override;
 
@@ -224,7 +223,6 @@ private:
         VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME
     };
 
-    void* m_ExternalDevice = nullptr;
     std::string m_RendererString;
 
     vk::Instance m_VulkanInstance;
@@ -241,6 +239,7 @@ private:
     vk::Queue m_ComputeQueue;
     vk::Queue m_TransferQueue;
     vk::Queue m_PresentQueue;
+    bool m_UseExternalDevice = false;
     
     vk::SurfaceKHR m_WindowSurface;
 
@@ -854,7 +853,8 @@ bool DeviceManager_VK::createDevice()
         .setTextureCompressionBC(true)
         .setGeometryShader(true)
         .setImageCubeArray(true)
-        .setDualSrcBlend(true);
+        .setDualSrcBlend(true)
+        .setMultiDrawIndirect(true);
 
     auto vulkan12features = vk::PhysicalDeviceVulkan12Features()
         .setDescriptorIndexing(true)
@@ -1031,12 +1031,18 @@ bool DeviceManager_VK::createSwapChain()
 
 bool DeviceManager_VK::CreateInstanceInternal()
 {
-    auto* pUnityInstance = reinterpret_cast<UnityVulkanInstance*>(m_ExternalDevice);
+    UnityVulkanInstance* pUnityInstance = nullptr;
+    if (auto* pUnity = unity::UnityApi::Ins())
+    {
+        pUnityInstance = (UnityVulkanInstance*)(pUnity->gSetupData.pExternalDevice);
+    }
+
     if (pUnityInstance)
     {
         m_VulkanInstance = pUnityInstance->instance;
         VULKAN_HPP_DEFAULT_DISPATCHER.init(pUnityInstance->getInstanceProcAddr);
         VULKAN_HPP_DEFAULT_DISPATCHER.init(m_VulkanInstance);
+        m_UseExternalDevice = true;
         return true;
     }
 
@@ -1091,7 +1097,11 @@ bool DeviceManager_VK::EnumerateAdapters(std::vector<AdapterInfo>& outAdapters)
 
 bool DeviceManager_VK::CreateDevice()
 {
-    auto* pUnityInstance = reinterpret_cast<UnityVulkanInstance*>(m_ExternalDevice);
+    UnityVulkanInstance* pUnityInstance = nullptr;
+    if (auto* pUnity = unity::UnityApi::Ins())
+    {
+        pUnityInstance = (UnityVulkanInstance*)(pUnity->gSetupData.pExternalDevice);
+    }
 
     if (m_DeviceParams.enableDebugRuntime)
     {
@@ -1130,6 +1140,7 @@ bool DeviceManager_VK::CreateDevice()
     CHECK(findQueueFamilies(m_VulkanPhysicalDevice))
     if (pUnityInstance)
     {
+        m_UseExternalDevice = true;
         m_VulkanDevice = pUnityInstance->device; // TODO: enabled required extensions
         const vk::PhysicalDeviceProperties physicalDeviceProperties = m_VulkanPhysicalDevice.getProperties();
         m_RendererString = std::string(physicalDeviceProperties.deviceName.data());
@@ -1232,7 +1243,7 @@ void DeviceManager_VK::DestroyDeviceAndSwapChain()
     m_ValidationLayer = nullptr;
     m_RendererString.clear();
     
-    if (m_ExternalDevice)
+    if (m_UseExternalDevice)
     {
         m_VulkanDevice = nullptr;
     }
@@ -1257,7 +1268,7 @@ void DeviceManager_VK::DestroyDeviceAndSwapChain()
         m_VulkanInstance.destroyDebugReportCallbackEXT(m_DebugReportCallback);
     }
 
-    if (m_ExternalDevice)
+    if (m_UseExternalDevice)
     {
         m_VulkanInstance = nullptr;
     }
@@ -1341,7 +1352,7 @@ void DeviceManager_VK::Present()
     m_FramesInFlight.push(query);
 }
 
-DeviceManager *DeviceManager::CreateVK(void* pExternalDevice = nullptr)
+DeviceManager *DeviceManager::CreateVK()
 {
-    return new DeviceManager_VK(pExternalDevice);
+    return new DeviceManager_VK();
 }

@@ -201,7 +201,7 @@ namespace donut::app
     class DeviceManager
     {
     public:
-        static DeviceManager* Create(nvrhi::GraphicsAPI api, void* pExternalDevice = nullptr);
+        static DeviceManager* Create(nvrhi::GraphicsAPI api);
 
         bool CreateHeadlessDevice(const DeviceCreationParameters& params);
         bool CreateWindowDeviceAndSwapChain(const DeviceCreationParameters& params, const char* windowTitle);
@@ -341,9 +341,9 @@ namespace donut::app
         } m_callbacks;
 
     private:
-        static DeviceManager* CreateD3D11(void* pExternalDevice);
-        static DeviceManager* CreateD3D12(void* pExternalDevice);
-        static DeviceManager* CreateVK(void* pExternalDevice);
+        static DeviceManager* CreateD3D11();
+        static DeviceManager* CreateD3D12();
+        static DeviceManager* CreateVK();
 
         std::string m_WindowTitle;
     };

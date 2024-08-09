@@ -1,15 +1,54 @@
 #include <donut/unity/FBScene.h>
+#include <donut/unity/UnityApi.h>
 #include <donut/engine/SceneGraph.h>
 #include <donut/engine/TextureCache.h>
 #include <donut/core/log.h>
-#include "../unity/Unity/IUnityFormat.h"
+#include "Unity/IUnityFormat.h"
 #include <unordered_map>
+
+using float3 = dm::float3;
+#include <donut/shaders/material_cb.h>
+
+#include <Windows.h>
 
 using namespace donut::engine;
 namespace donut::unity
 {
+nvrhi::Format toNvRHIFormat(TextureFormat fmt, bool sRGB)
+{
+    switch (fmt)
+    {
+    case kTexFormatAlpha8: return nvrhi::Format::R8_UNORM;
+    case kTexFormatRGBA32: return nvrhi::Format::RGBA8_UNORM;    
+    case kTexFormatARGB32: return nvrhi::Format::RGBA8_UNORM;
+    case kTexFormatARGBFloat: return nvrhi::Format::RGBA16_FLOAT;
+    case kTexFormatR16: return nvrhi::Format::R16_FLOAT;
+    case kTexFormatDXT1: return sRGB ? nvrhi::Format::BC1_UNORM_SRGB : nvrhi::Format::BC1_UNORM;
+    case kTexFormatDXT3: return sRGB ? nvrhi::Format::BC2_UNORM_SRGB : nvrhi::Format::BC2_UNORM;
+    case kTexFormatDXT5: return sRGB ? nvrhi::Format::BC3_UNORM_SRGB : nvrhi::Format::BC3_UNORM;
+    case kTexFormatBGRA32: return nvrhi::Format::BGRA8_UNORM;
+    case kTexFormatRHalf: return nvrhi::Format::R16_FLOAT;
+    case kTexFormatRGHalf: return nvrhi::Format::RG16_FLOAT;
+    case kTexFormatRGBAHalf: return nvrhi::Format::RGBA16_FLOAT;
+    case kTexFormatRFloat: return nvrhi::Format::R32_FLOAT;
+    case kTexFormatRGFloat: return nvrhi::Format::RG32_FLOAT;
+    case kTexFormatRGBAFloat: return nvrhi::Format::RGBA32_FLOAT;
+    case kTexFormatRGBFloat: return nvrhi::Format::RGB32_FLOAT;
+    case kTexFormatBC6H: return nvrhi::Format::BC6H_SFLOAT;
+    case kTexFormatBC7: return sRGB ? nvrhi::Format::BC7_UNORM_SRGB : nvrhi::Format::BC7_UNORM;
+    case kTexFormatBC4: return nvrhi::Format::BC4_UNORM;
+    case kTexFormatBC5: return nvrhi::Format::BC5_UNORM;
+    case kTexFormatRG32: return nvrhi::Format::RG32_FLOAT;
+    case kTexFormatRGBA64: return nvrhi::Format::RGBA16_UNORM;
+    default: donut::log::error("Unsupported unity texture format %d", (uint32_t)fmt);
+        return nvrhi::Format::UNKNOWN;
+    }
+}
+
+
 FBScene::FBScene(const uint8_t* pData, uint32_t size)
 {
+    mSerializedDataIsValid = false;
     std::memcpy(&setting, pData, sizeof(FBGlobalSetting));
     log::info("FBScene {} MB", (double)size/(1024.0 * 1024.0));
     if (size < sizeof(FBGlobalSetting) + setting.lightCount * sizeof(FBLight) + setting.meshCount * sizeof(FBMesh) + setting.textureCount * sizeof(FBTexture) + setting.materialCount * sizeof(FBMaterial) + setting.objectCount * sizeof(FBObject))
@@ -82,73 +121,152 @@ FBScene::FBScene(const uint8_t* pData, uint32_t size)
             {
                 log::error("Scene %s has terrain, but invalid terrain size", setting.immeFolderPath);
             }
+            else
+            {
+                mSerializedDataIsValid = true;
+                log::info("isExportSceneToDisk=%d", setting.isExportSceneToDisk());
+                log::info("isExportTexToDisk=%d", setting.isExportTexToDisk());
+                log::info("isExportBufToScene=%d", setting.isExportBufToScene());
+                log::info("use16BitIndices%d", setting.use16BitIndices());
+                log::info("use32BitIndices=%d", setting.use32BitIndices());
+            }
         }
-
-        log::info("isExportSceneToDisk=%d", setting.isExportSceneToDisk());
-        log::info("isExportTexToDisk=%d", setting.isExportTexToDisk());
-        log::info("isExportBufToScene=%d", setting.isExportBufToScene());
-        log::info("use16BitIndices%d", setting.use16BitIndices());
-        log::info("use32BitIndices=%d", setting.use32BitIndices());
     }
 }
 
-bool FBScene::GetSceneData(
-    std::shared_ptr<SceneTypeFactory> pSTF,
-    TextureCache& textureCache,
-    SceneLoadingStats& stats,
-    tf::Executor* executor,
-    SceneImportResult& result,std::vector<void*>& outSharedHandles)
+bool FBScene::IsRunningInUnityProcess() const
 {
-    if (!setting.hasSplitVertexData())
+    return GetCurrentProcessId() == setting.unityPID;
+}
+
+void* FBScene::DupSharedHandle(void* handle) const
+{
+    if (handle == nullptr)
     {
-        return false;
+        log::error("Invalid input handle to duplicate: %p", handle);
+        return nullptr;
     }
-    // textures
-    std::unordered_map<int32_t, std::shared_ptr<LoadedTexture>> loadedTextures;
-    auto load_texture = [this, &loadedTextures, &textureCache](int32_t unityID, bool sRGB)
+    if (IsRunningInUnityProcess())
     {
-        if (unityID == kInvalidUnityID)
-            return std::shared_ptr<LoadedTexture>(nullptr);
-
-        auto it = loadedTextures.find(unityID);
-        if (it != loadedTextures.end())
-            return it->second;
-
-        std::shared_ptr<LoadedTexture> loadedTexture;
-        std::filesystem::path filePath = "/fbtextures/" + std::to_string(unityID) + ".dds";
-        // TODO: add check for fbtextures folder
-//#ifdef DONUT_WITH_TASKFLOW
-//            if (executor)
-//                loadedTexture = textureCache.LoadTextureFromFileAsync(filePath, sRGB, *executor);
-//            else
-//#endif
-                loadedTexture = textureCache.LoadTextureFromFileDeferred(filePath, sRGB);
-        loadedTextures[unityID] = loadedTexture;
-        return loadedTexture;
-    };
-
-    for (const auto& tex : textures)
+        return handle; // no need to duplicate handle in the same process
+    }
+    else
     {
-        if (tex.IsMaterialTexture())
+        HANDLE hUnity = OpenProcess(PROCESS_DUP_HANDLE, FALSE, setting.unityPID);
+        if (!hUnity)
         {
-           auto loadTex = load_texture(tex.unityID, tex.IsSRGB());
+            log::warning("Failed to open process %d", setting.unityPID);
         }
         else
         {
-            // TODO: created shared texture
+            HANDLE dupHandle;
+            if (DuplicateHandle(hUnity, handle, GetCurrentProcess(), &dupHandle, 0, FALSE, DUPLICATE_SAME_ACCESS))
+            {
+                return dupHandle;
+            }
+            else
+            {
+                log::error("Failed to duplicate handle %p, unityPID=%d, unitProcessHandle=%p", handle, setting.unityPID, hUnity);
+            }
+        }
+    }
+    return nullptr;
+}
+
+bool FBScene::GetSceneData(
+    std::shared_ptr<donut::engine::SceneTypeFactory> pSTF,
+    donut::engine::TextureCache& textureCache,
+    donut::engine::SceneLoadingStats& stats,
+    tf::Executor* executor,
+    donut::engine::SceneImportResult& result)
+{
+    if (!hasValidSerializedData())
+    {
+        return false;
+    }
+
+    if (setting.useNativeGPUHandle())
+    {
+        log::error("Not implemented");
+        return false;;
+        if (!IsRunningInUnityProcess())
+        {
+            log::error("useNativeGPUHandle is only supported in Unity process");
+            return false;
         }
     }
     
-    // material
+    // create all shared textures
+    bool bTexSrc = setting.requiredSendSharedHandleBakeToUnity();
+    std::unordered_map<int32_t, std::shared_ptr<LoadedTexture>> loadedTextures;
+    std::vector<void*> sharedRTVs;
+    for (uint32_t i = 0; i < textures.size(); i++)
+    {
+        const auto& tex = textures[i];
+        void* sharedHandle = DupSharedHandle((void*)(tex.handle));
+        if (i < 5)
+        {
+            sharedRTVs.push_back(sharedHandle);
+            continue;
+        }
+        if (!(tex.IsMaterialTexture() && tex.unityID != kInvalidUnityID))
+        {
+            DONUT_LOG_ERROR("Invalid texture unityID=%d", tex.unityID);
+            continue;
+        }
+        std::string texName = std::to_string((uint32_t)tex.unityID);
+        nvrhi::Format nvFormat = toNvRHIFormat((TextureFormat)(tex.format), tex.IsSRGB());
+        std::shared_ptr<LoadedTexture> loadedTex = bTexSrc ?
+            textureCache.CreateExportableSharedTexture(texName, tex.width, tex.height, tex.mipCount, nvFormat, tex.IsSRGB()) :
+            textureCache.LoadTextureFromSharedHandle(sharedHandle, texName, tex.width, tex.height, tex.mipCount, nvFormat, tex.IsSRGB());
+        
+        if (loadedTex)
+        {
+            loadedTextures[tex.unityID] = loadedTex;
+        }
+        else
+        {
+            DONUT_LOG_ERROR("[requiredSendSharedHandleBakeToUnity=%d] Failed to load texture %d", bTexSrc, tex.unityID);
+        }
+    }
 
-    auto find_texture = [&loadedTextures, &load_texture](int32_t unityID, bool sRGB = false)
+    if (auto* pUnity = UnityApi::Ins())
+    {
+        memcpy(pUnity->gSetupData.handleUAVs, sharedRTVs.data(), sizeof(void*) * 5);
+    }
+    
+    // material
+    auto find_texture = [this, &loadedTextures, &textureCache](int32_t unityID, bool optional, bool sRGB = false)
     {
         auto it = loadedTextures.find(unityID);
         if (it != loadedTextures.end())
+        {
             return it->second;
-        else return load_texture(unityID, sRGB);
+        }
+        else if (setting.isExportSceneToDisk())
+        {
+            std::shared_ptr<LoadedTexture> loadedTexture;
+            std::filesystem::path filePath = "/unity-import/" + std::to_string(unityID) + ".dds";
+            loadedTexture = textureCache.LoadTextureFromFileDeferred(filePath, sRGB);
+            if (loadedTexture)
+            {
+                loadedTextures[unityID] = loadedTexture;
+                return loadedTexture;
+            }
+            else
+            {
+                log::error("Failed to load texture unityID=%d", unityID);
+            }
+        }
+        else
+        {
+            if (!optional)
+            {
+                log::error("Failed to find texture unityID=%d", unityID);
+            }
+        }
+        return std::shared_ptr<LoadedTexture>(nullptr);
     };
-
 
     std::unordered_map<int32_t, std::shared_ptr<Material>> loadedMaterials;
     bool useTransmission = false;
@@ -164,35 +282,47 @@ bool FBScene::GetSceneData(
         {
         case PanguScenePBR:
         {
-            matinfo->baseOrDiffuseTexture = find_texture(mat.textureIds[0], true);
-            matinfo->normalTexture = find_texture(mat.textureIds[1]);
-            matinfo->emissiveTexture = find_texture(mat.textureIds[2]);
+            matinfo->baseOrDiffuseTexture = find_texture(mat.textureIds[0], false, true);
+            matinfo->normalTexture = find_texture(mat.textureIds[1], false);
+            matinfo->emissiveTexture = find_texture(mat.textureIds[2], true);
             matinfo->emissiveColor = mat.textureIds[2] == kInvalidUnityID ? float3(0, 0, 0) : float3(mat.parameters[0], mat.parameters[1], mat.parameters[2]);
             matinfo->emissiveIntensity = mat.parameters[3];
             matinfo->domain = useTransmission ? MaterialDomain::Transmissive : MaterialDomain::Opaque;
+            matinfo->hookMaterialType = MaterialFlags_PanguScenePBR; 
+            matinfo->metalness = 1.0;
+            matinfo->roughness = 1.0;
             loadedMaterials[mat.unityID] = matinfo;
             break;
         }
         case TreeLeaf:
         {
-            matinfo->baseOrDiffuseTexture = find_texture(mat.textureIds[0], true);
-            matinfo->normalTexture = find_texture(mat.textureIds[1]);
+            matinfo->baseOrDiffuseTexture = find_texture(mat.textureIds[0], false, true);
+            matinfo->normalTexture = find_texture(mat.textureIds[1], false);
             matinfo->domain = useTransmission ? MaterialDomain::TransmissiveAlphaTested : MaterialDomain::AlphaTested;
             matinfo->alphaCutoff = mat.parameters[0];
+            matinfo->hookMaterialType = MaterialFlags_TreeLeafV7;
+            matinfo->metalness = 0.0; // not metallic for all tree leaves
+            matinfo->roughness = 1.0;
             loadedMaterials[mat.unityID] = matinfo;
             break;   
         }
         case Terrain:
         {
-            matinfo->baseOrDiffuseTexture = find_texture(mat.textureIds[0], true);
-            matinfo->normalTexture = find_texture(mat.textureIds[1]);
+            matinfo->baseOrDiffuseTexture = find_texture(mat.textureIds[0], false, true);
+            matinfo->normalTexture = find_texture(mat.textureIds[1], false);
             loadedMaterials[mat.unityID] = matinfo;
+            matinfo->hookMaterialType = MaterialFlags_TerrainSplat;
+            matinfo->metalness = 1.0;
+            matinfo->roughness = 1.0;
             break;  
         }
         case MeshTilling:
         {
-            matinfo->baseOrDiffuseTexture = find_texture(mat.textureIds[0], true);
-            matinfo->normalTexture = find_texture(mat.textureIds[3]);
+            matinfo->baseOrDiffuseTexture = find_texture(mat.textureIds[0], false, true);
+            matinfo->normalTexture = find_texture(mat.textureIds[3], false);
+            matinfo->hookMaterialType = MaterialFlags_MeshTilling;
+            matinfo->metalness = 1.0;
+            matinfo->roughness = 1.0; 
             loadedMaterials[mat.unityID] = matinfo;
         }
         default:
@@ -291,6 +421,7 @@ bool FBScene::GetSceneData(
         if (to)
         {
             to->unityID = from.unityID;
+            loadedLights[from.unityID] = to;
         }
     }
 
@@ -321,8 +452,8 @@ bool FBScene::GetSceneData(
                 }
                 geo->material = emptyMaterial;
             }
-            geo->indexOffsetInMesh = 0;
-            geo->vertexOffsetInMesh = 0;
+            geo->indexOffsetInMesh = 0; // we pack all submesh into one mesh now
+            geo->vertexOffsetInMesh = 0; // we pack all submesh into one mesh now
             geo->numIndices = meshInfo->totalIndices;
             geo->numVertices = meshInfo->totalVertices;
             geo->objectSpaceBounds = meshInfo->objectSpaceBounds;
@@ -333,16 +464,14 @@ bool FBScene::GetSceneData(
     // build the scene graph
     std::shared_ptr<SceneGraph> graph = std::make_shared<SceneGraph>();
     std::shared_ptr<SceneGraphNode> root = std::make_shared<SceneGraphNode>();
-#ifndef NDEBUG
     root->SetName(setting.immeFolderPath);
-#endif
     for (const auto& obj : objects)
     {
         auto n = std::make_shared<SceneGraphNode>();
         auto foundMesh = loadedMeshes.find(obj.meshUnityID);
         dm::double3 translation(obj.position.x, obj.position.y, obj.position.z);
         dm::double3 scaling(obj.scale.x, obj.scale.y, obj.scale.z);
-        dm::dquat rotation(obj.rotation.x, obj.rotation.y, obj.rotation.z, obj.rotation.w);
+        dm::dquat rotation(dm::quat::fromXYZW(dm::float4(obj.rotation.x, obj.rotation.y, obj.rotation.z, obj.rotation.w)));
         n->SetTransform(&translation, &rotation, &scaling);
         n->SetUnityID(obj.unityID);
         graph->Attach(root, n);
@@ -366,9 +495,7 @@ bool FBScene::GetSceneData(
             }
         }
 
-#ifndef NDEBUG
         n->SetName(std::to_string(obj.unityID));
-#endif
         stats.ObjectsTotal++;
         stats.ObjectsLoaded++;
     }
@@ -377,5 +504,5 @@ bool FBScene::GetSceneData(
     return true;
 }
 
-
 } // namespace Falcor
+

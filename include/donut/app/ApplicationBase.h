@@ -33,6 +33,7 @@ namespace donut::engine
 {
     class TextureCache;
     class CommonRenderPasses;
+    class Scene;
 }
 
 namespace donut::app
@@ -41,6 +42,7 @@ namespace donut::app
     {
     private:
         bool m_SceneLoaded;
+        bool m_SceneFlushed = false;
         bool m_AllTexturesFinalized;
 
     protected:
@@ -54,6 +56,7 @@ namespace donut::app
 
     public:
         ApplicationBase(DeviceManager* deviceManager);
+        ~ApplicationBase() { if (m_SceneLoadingThread) { m_SceneLoadingThread->join(); } }
 
         virtual void Render(nvrhi::IFramebuffer* framebuffer) override;
 
@@ -61,6 +64,7 @@ namespace donut::app
         virtual void RenderSplashScreen(nvrhi::IFramebuffer* framebuffer);
         virtual void BeginLoadingScene(std::shared_ptr<vfs::IFileSystem> fs, const std::filesystem::path& sceneFileName);
         virtual bool LoadScene(std::shared_ptr<vfs::IFileSystem> fs, const std::filesystem::path& sceneFileName) = 0;
+        bool LoadSceneHelper(std::shared_ptr<vfs::IFileSystem> fs, engine::Scene* pScene, const std::filesystem::path& sceneFileName);
         virtual void SceneUnloading();
         virtual void SceneLoaded();
 

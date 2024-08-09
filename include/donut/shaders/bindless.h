@@ -61,6 +61,7 @@ struct InstanceData
 };
 
 static const float c_SizeOfLightmapAtlas = 2048.0f;
+static const uint c_MaxGeometryCountPerMeshInstance = 32;
 
 #ifndef __cplusplus
 

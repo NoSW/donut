@@ -37,6 +37,7 @@ this software is released into the Public Domain.
 #include <donut/engine/Scene.h>
 #include <donut/engine/GltfImporter.h>
 #include <donut/unity/FBScene.h>
+#include <donut/unity/UnityApi.h>
 #include <donut/core/json.h>
 #include <donut/core/log.h>
 #include <donut/core/string_utils.h>
@@ -82,6 +83,8 @@ struct Scene::Resources
     std::vector<MaterialConstants> materialData;
     std::vector<GeometryData> geometryData;
     std::vector<InstanceData> instanceData;
+    std::vector<nvrhi::DrawIndirectArguments> drawData;
+    std::vector<uint32_t> drawIDData;
 };
 
 Scene::Scene(
@@ -155,10 +158,9 @@ bool Scene::LoadFBSceneFromMemory(const uint8_t* data, uint32_t size)
     ++g_LoadingStats.ObjectsTotal;
     unity::FBScene fbscene(data, size);
     SceneImportResult result;
-    std::vector<void*> sharedHandles;
-    if (!fbscene.GetSceneData(m_SceneTypeFactory, *m_TextureCache, g_LoadingStats, nullptr, result, sharedHandles))
+    if (!fbscene.GetSceneData(m_SceneTypeFactory, *m_TextureCache, g_LoadingStats, nullptr, result))
     {
-        log::error("Failed to load the scene from the file.");
+        log::error("Failed to load the scene");
         return false;
     }
 
@@ -717,6 +719,16 @@ void Scene::RefreshBuffers(nvrhi::ICommandList* commandList, uint32_t frameIndex
         arraysAllocated = true;
     }
 
+    if (m_SceneGraph->GetMeshInstances().size() > m_Resources->drawData.size())
+    {
+        m_Resources->drawData.resize(nvrhi::align<size_t>(m_SceneGraph->GetMeshInstances().size(), allocationGranularity));
+        m_Resources->drawIDData.resize(nvrhi::align<size_t>(m_SceneGraph->GetMeshInstances().size(), allocationGranularity));
+        auto result = CreateDrawBuffer();
+        m_IndirectArgsBuffer = result.first;
+        m_DrawIDBuffer = result.second;
+        arraysAllocated = true;
+    }
+
     for (const auto& material : m_SceneGraph->GetMaterials())
     {
         if (material->dirty || m_SceneStructureChanged || arraysAllocated)
@@ -761,6 +773,12 @@ void Scene::RefreshBuffers(nvrhi::ICommandList* commandList, uint32_t frameIndex
         }
 
         WriteInstanceBuffer(commandList);
+    }
+
+    if (m_SceneStructureChanged || arraysAllocated)
+    {
+        UpdateDraw();
+        WriteDrawBuffer(commandList);
     }
 
     if (m_EnableBindlessResources && (materialsChanged || m_SceneStructureChanged || arraysAllocated))
@@ -1192,6 +1210,36 @@ nvrhi::BufferHandle Scene::CreateInstanceBuffer()
     return m_Device->createBuffer(bufferDesc);
 }
 
+std::pair<nvrhi::BufferHandle, nvrhi::BufferHandle> Scene::CreateDrawBuffer()
+{
+    std::pair<nvrhi::BufferHandle, nvrhi::BufferHandle> result;
+    {
+        nvrhi::BufferDesc bufferDesc;
+        bufferDesc.byteSize = sizeof(nvrhi::DrawIndirectArguments) * m_Resources->drawData.size();
+        bufferDesc.debugName = "DrawBuffer";
+        bufferDesc.structStride = sizeof(nvrhi::DrawIndirectArguments);
+        bufferDesc.canHaveRawViews = true;
+        bufferDesc.isDrawIndirectArgs = true;
+        bufferDesc.initialState = nvrhi::ResourceStates::IndirectArgument;
+        bufferDesc.keepInitialState = true;
+        result.first = m_Device->createBuffer(bufferDesc);
+    }
+
+    {
+        nvrhi::BufferDesc bufferDesc;
+        bufferDesc.byteSize = sizeof(uint32_t) * m_Resources->drawIDData.size();
+        bufferDesc.debugName = "DrawIDBuffer";
+        bufferDesc.structStride = sizeof(uint32_t);
+        bufferDesc.canHaveRawViews = true;
+        bufferDesc.isVertexBuffer = true;
+        bufferDesc.initialState = nvrhi::ResourceStates::VertexBuffer;
+        bufferDesc.keepInitialState = true;
+        result.second = m_Device->createBuffer(bufferDesc);
+    }
+    return result;
+}
+
+
 nvrhi::BufferHandle Scene::CreateMaterialConstantBuffer(const std::string& debugName)
 {
     nvrhi::BufferDesc bufferDesc;
@@ -1220,6 +1268,14 @@ void Scene::WriteInstanceBuffer(nvrhi::ICommandList* commandList) const
 {
     commandList->writeBuffer(m_InstanceBuffer, m_Resources->instanceData.data(), 
         m_Resources->instanceData.size() * sizeof(InstanceData));
+}
+
+void Scene::WriteDrawBuffer(nvrhi::ICommandList* commandList) const
+{
+    commandList->writeBuffer(m_IndirectArgsBuffer, m_Resources->drawData.data(),
+        m_Resources->drawData.size() * sizeof(nvrhi::DrawIndirectArguments));
+    commandList->writeBuffer(m_DrawIDBuffer, m_Resources->drawIDData.data(),
+        m_Resources->drawIDData.size() * sizeof(uint32_t));
 }
 
 void Scene::UpdateMaterial(const std::shared_ptr<Material>& material)
@@ -1274,4 +1330,26 @@ void Scene::UpdateInstance(const std::shared_ptr<MeshInstance>& instance)
     idata.emissionBoost = 1.0f;
     uint4 st = instance->GetLightmapST();
     idata.lightmapST = float4((float)st.x, (float)st.y, (float)st.z, (float)st.w) / float(kLightmapAtlasSize);
+}
+
+void Scene::UpdateDraw()
+{
+    const auto& instances = m_SceneGraph->GetMeshInstances();
+    for (uint32_t i = 0; i < instances.size(); i++)
+    {
+        const auto& ins = instances[i];
+        const auto& mesh = ins->GetMesh();
+        //assert(mesh->geometries.size() == 1); // TODO: support multiple geometries per instance
+        nvrhi::DrawIndirectArguments& draw = m_Resources->drawData[i];
+        draw.vertexCount = mesh->totalIndices;
+        draw.instanceCount = 1;
+        draw.startInstanceLocation = i;
+        draw.startVertexLocation = mesh->indexOffset;
+        m_Resources->drawIDData[i] = i;
+    }
+}
+
+uint32_t Scene::GetDrawCount() const
+{
+    return (uint32_t)m_SceneGraph->GetMeshInstances().size();
 }

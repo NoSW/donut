@@ -53,6 +53,7 @@ freely, subject to the following restrictions:
 
 #include <donut/app/DeviceManager.h>
 #include <donut/core/log.h>
+#include <donut/unity/UnityApi.h>
 
 #include <Windows.h>
 #include <dxgi1_5.h>
@@ -93,7 +94,6 @@ class DeviceManager_DX12 : public DeviceManager
     nvrhi::DeviceHandle                         m_NvrhiDevice;
 
     std::string                                 m_RendererString;
-    void*                                       m_ExternalDevice = nullptr;
 
 public:
     const char *GetRendererString() const override
@@ -105,9 +105,6 @@ public:
     {
         return m_NvrhiDevice;
     }
-
-    DeviceManager_DX12(void* pExternalDevice)
-        : m_ExternalDevice(pExternalDevice) {}
 
     void ReportLiveObjects() override;
     bool EnumerateAdapters(std::vector<AdapterInfo>& outAdapters) override;
@@ -255,7 +252,11 @@ bool DeviceManager_DX12::EnumerateAdapters(std::vector<AdapterInfo>& outAdapters
 
 bool DeviceManager_DX12::CreateDevice()
 {
-    ID3D12Device* pExtDevice = static_cast<ID3D12Device*>(m_ExternalDevice);
+    ID3D12Device* pExtDevice = nullptr;
+    if (auto* pUnity = donut::unity::UnityApi::Ins())
+    {
+        pExtDevice = (ID3D12Device*)(pUnity->gSetupData.pExternalDevice);
+    }
 
     if (m_DeviceParams.enableDebugRuntime)
     {
@@ -664,7 +665,7 @@ void DeviceManager_DX12::Shutdown()
     }
 }
 
-DeviceManager *DeviceManager::CreateD3D12(void* pExternalDevice)
+DeviceManager *DeviceManager::CreateD3D12()
 {
-    return new DeviceManager_DX12(pExternalDevice);
+    return new DeviceManager_DX12();
 }

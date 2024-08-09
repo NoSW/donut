@@ -25,6 +25,7 @@
 #include <donut/engine/TextureCache.h>
 #include <donut/engine/CommonRenderPasses.h>
 #include <donut/core/vfs/VFS.h>
+#include <donut/unity/UnityApi.h>
 
 #include <cstdlib>
 #include <sstream>
@@ -67,14 +68,17 @@ void ApplicationBase::Render(nvrhi::IFramebuffer* framebuffer)
         return;
     }
 
-    if (m_SceneLoaded && m_SceneLoadingThread)
+    if (m_SceneLoaded)
     {
-        m_SceneLoadingThread->join();
-        m_SceneLoadingThread = nullptr;
-
-        // SceneLoaded() would already get called from 
-        // BeginLoadingScene() in case of synchronous loads
-        SceneLoaded();
+        if (m_SceneLoadingThread)
+        {
+            m_SceneLoadingThread->join();
+            m_SceneLoadingThread = nullptr;
+        }
+        if (!m_SceneFlushed)
+        {
+            SceneLoaded();
+        }
     }
 
     RenderScene(framebuffer);
@@ -102,7 +106,7 @@ void ApplicationBase::SceneLoaded()
         m_TextureCache->ProcessRenderingThreadCommands(*m_CommonPasses, 0.f);
         m_TextureCache->LoadingFinished();
     }
-    m_SceneLoaded = true;
+    m_SceneFlushed = true;
 }
 
 void ApplicationBase::SetAsynchronousLoadingEnabled(bool enabled)
@@ -145,7 +149,23 @@ void ApplicationBase::BeginLoadingScene(std::shared_ptr<IFileSystem> fs, const s
     else
     {
         m_SceneLoaded = LoadScene(fs, sceneFileName);
-        SceneLoaded();
+    }
+}
+
+bool ApplicationBase::LoadSceneHelper(std::shared_ptr<vfs::IFileSystem> fs, engine::Scene* pScene, const std::filesystem::path& sceneFileName)
+{
+    auto* pUnity = unity::UnityApi::Ins();
+    if (pUnity && pUnity->gSetupData.pSceneData && pUnity->gSetupData.sceneDataBytes)
+    {
+        return pScene->LoadFBSceneFromMemory((const uint8_t*)pUnity->gSetupData.pSceneData, pUnity->gSetupData.sceneDataBytes);
+    }
+    else if (sceneFileName.extension().string() == ".fbscene")
+    {
+        return pScene->LoadFBScene(sceneFileName);
+    }
+    else
+    {
+        return pScene->Load(sceneFileName);
     }
 }
 

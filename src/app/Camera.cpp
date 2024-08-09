@@ -45,6 +45,16 @@ void BaseCamera::BaseLookAt(float3 cameraPos, float3 cameraTarget, float3 camera
     UpdateWorldToView();
 }
 
+void BaseCamera::SetRotation(dm::float4 rotation)
+{
+    dm::dquat r(dm::quat::fromXYZW(dm::float4(rotation.x, rotation.y, rotation.z, rotation.w)));
+    auto m = r.toMatrix(); // TODO: not tested for unity compatibility
+    m_CameraDir = dm::float3((float)m.row2.x,(float) m.row2.y, (float)m.row2.z);
+    m_CameraUp = dm::float3((float)m.row1.x, (float)m.row1.y, (float)m.row1.z);
+    m_CameraRight = dm::float3((float)m.row0.x, (float)m.row0.y, (float)m.row0.z);
+}
+
+
 void FirstPersonCamera::KeyboardUpdate(int key, int scancode, int action, int mods)
 {
     if (keyboardMap.find(key) == keyboardMap.end())

@@ -458,12 +458,12 @@ void DeviceManager::RunMessageLoop()
     m_PreviousFrameTimestamp = glfwGetTime();
 
 #if DONUT_WITH_UNITY
-    auto* pUnity = unity::UnityApi::GetApiInstance();
+    auto* pUnity = unity::UnityApi::Ins();
 #endif
     while(m_DeviceParams.headlessDevice || !glfwWindowShouldClose(m_Window))
     {
 #if DONUT_WITH_UNITY
-        if (pUnity && pUnity->ShouldExit()) { break; }
+        if (pUnity && pUnity->RequestExitBakerThread()) { break; }
 #endif
         if (m_callbacks.beforeFrame) m_callbacks.beforeFrame(*this);
 
@@ -799,21 +799,21 @@ void DeviceManager::SetInformativeWindowTitle(const char* applicationName, const
     SetWindowTitle(ss.str().c_str());
 }
 
-donut::app::DeviceManager* donut::app::DeviceManager::Create(nvrhi::GraphicsAPI api, void* pExternalDevice)
+donut::app::DeviceManager* donut::app::DeviceManager::Create(nvrhi::GraphicsAPI api)
 {
     switch (api)
     {
 #if DONUT_WITH_DX11
     case nvrhi::GraphicsAPI::D3D11:
-        return CreateD3D11(pExternalDevice);
+        return CreateD3D11();
 #endif
 #if DONUT_WITH_DX12
     case nvrhi::GraphicsAPI::D3D12:
-        return CreateD3D12(pExternalDevice);
+        return CreateD3D12();
 #endif
 #if DONUT_WITH_VULKAN
     case nvrhi::GraphicsAPI::VULKAN:
-        return CreateVK(pExternalDevice);
+        return CreateVK();
 #endif
     default:
         log::error("DeviceManager::Create: Unsupported Graphics API (%d)", api);

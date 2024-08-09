@@ -14,10 +14,16 @@
 #include <mutex>
 #include <algorithm>
 
+#include <dxgi1_3.h>
+
+#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_win32.h>
 
 #define VK_FUNC_LIST_APPLY_(apply) \
     apply(vkAllocateMemory) \
     apply(vkGetPhysicalDeviceMemoryProperties) \
+    apply(vkEnumerateDeviceExtensionProperties) \
+    apply(vkGetPhysicalDeviceProperties) \
     apply(vkGetMemoryWin32HandleKHR) \
     apply(vkCreateImage) \
     apply(vkGetImageMemoryRequirements) \
@@ -39,6 +45,78 @@ VK_FUNC_LIST_APPLY_(VK_OP_DECL)
 
 namespace donut::unity
 {
+
+
+inline uint32_t get_vk_format(TextureFormat fmt)
+{
+    switch (fmt)
+    {
+    case kTexFormatAlpha8: return VK_FORMAT_R8_UNORM;
+    case kTexFormatARGB4444: return VK_FORMAT_B4G4R4A4_UNORM_PACK16;
+    case kTexFormatRGB24: return VK_FORMAT_R8G8B8_UNORM;
+    case kTexFormatRGBA32: return VK_FORMAT_R8G8B8A8_UNORM;
+    case kTexFormatARGB32: return VK_FORMAT_A8B8G8R8_UNORM_PACK32;
+    case kTexFormatARGBFloat: return VK_FORMAT_R32G32B32A32_SFLOAT;
+    case kTexFormatRGB565: return VK_FORMAT_R5G6B5_UNORM_PACK16;
+    case kTexFormatBGR24: return VK_FORMAT_B8G8R8_UNORM;
+    case kTexFormatR16: return VK_FORMAT_R16_UNORM;
+    case kTexFormatDXT1: return VK_FORMAT_BC1_RGBA_UNORM_BLOCK;
+    case kTexFormatDXT3: return VK_FORMAT_BC2_UNORM_BLOCK;
+    case kTexFormatDXT5: return VK_FORMAT_BC3_UNORM_BLOCK;
+    case kTexFormatRGBA4444: return VK_FORMAT_B4G4R4A4_UNORM_PACK16;
+    case kTexFormatBGRA32: return VK_FORMAT_B8G8R8A8_UNORM;
+    case kTexFormatRHalf: return VK_FORMAT_R16_SFLOAT;
+    case kTexFormatRGHalf: return VK_FORMAT_R16G16_SFLOAT;
+    case kTexFormatRGBAHalf: return VK_FORMAT_R16G16B16A16_SFLOAT;
+    case kTexFormatRFloat: return VK_FORMAT_R32_SFLOAT;
+    case kTexFormatRGFloat: return VK_FORMAT_R32G32_SFLOAT;
+    case kTexFormatRGBAFloat: return VK_FORMAT_R32G32B32A32_SFLOAT;
+    case kTexFormatYUY2: return VK_FORMAT_R8G8_UNORM;
+    case kTexFormatRGB9e5Float: return VK_FORMAT_E5B9G9R9_UFLOAT_PACK32;
+    case kTexFormatRGBFloat: return VK_FORMAT_R32G32B32_SFLOAT;
+    case kTexFormatBC6H: return VK_FORMAT_BC6H_UFLOAT_BLOCK;
+    case kTexFormatBC7: return VK_FORMAT_BC7_UNORM_BLOCK;
+    case kTexFormatBC4: return VK_FORMAT_BC4_UNORM_BLOCK;
+    case kTexFormatBC5: return VK_FORMAT_BC5_UNORM_BLOCK;
+    case kTexFormatDXT1Crunched: return VK_FORMAT_BC1_RGBA_UNORM_BLOCK;
+    case kTexFormatDXT5Crunched: return VK_FORMAT_BC3_UNORM_BLOCK;
+    case kTexFormatPVRTC_RGB2: return VK_FORMAT_PVRTC1_2BPP_UNORM_BLOCK_IMG;
+    case kTexFormatPVRTC_RGBA2: return VK_FORMAT_PVRTC1_2BPP_UNORM_BLOCK_IMG;
+    case kTexFormatPVRTC_RGB4: return VK_FORMAT_PVRTC1_4BPP_UNORM_BLOCK_IMG;
+    case kTexFormatPVRTC_RGBA4: return VK_FORMAT_PVRTC1_4BPP_UNORM_BLOCK_IMG;
+    case kTexFormatETC_RGB4: return VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK;
+    case kTexFormatEAC_R: return VK_FORMAT_EAC_R11_UNORM_BLOCK;
+    case kTexFormatEAC_R_SIGNED: return VK_FORMAT_EAC_R11_SNORM_BLOCK;
+    case kTexFormatEAC_RG: return VK_FORMAT_EAC_R11G11_UNORM_BLOCK;
+    case kTexFormatEAC_RG_SIGNED: return VK_FORMAT_EAC_R11G11_SNORM_BLOCK;
+    case kTexFormatETC2_RGB: return VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK;
+    case kTexFormatETC2_RGBA1: return VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK;
+    case kTexFormatETC2_RGBA8: return VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK;
+    case kTexFormatASTC_4x4: return VK_FORMAT_ASTC_4x4_UNORM_BLOCK;
+    case kTexFormatASTC_5x5: return VK_FORMAT_ASTC_5x5_UNORM_BLOCK;
+    case kTexFormatASTC_6x6: return VK_FORMAT_ASTC_6x6_UNORM_BLOCK;
+    case kTexFormatASTC_8x8: return VK_FORMAT_ASTC_8x8_UNORM_BLOCK;
+    case kTexFormatASTC_10x10: return VK_FORMAT_ASTC_10x10_UNORM_BLOCK;
+    case kTexFormatASTC_12x12: return VK_FORMAT_ASTC_12x12_UNORM_BLOCK;
+    case kTexFormatETC_RGB4_3DS: return VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK;
+    case kTexFormatETC_RGBA8_3DS: return VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK;
+    case kTexFormatRG16: return VK_FORMAT_R16G16_UNORM;
+    case kTexFormatR8: return VK_FORMAT_R8_UNORM;
+    case kTexFormatETC_RGB4Crunched: return VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK;
+    case kTexFormatETC2_RGBA8Crunched: return VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK;
+    case kTexFormatASTC_HDR_4x4: return VK_FORMAT_ASTC_4x4_SRGB_BLOCK;
+    case kTexFormatASTC_HDR_5x5: return VK_FORMAT_ASTC_5x5_SRGB_BLOCK;
+    case kTexFormatASTC_HDR_6x6: return VK_FORMAT_ASTC_6x6_SRGB_BLOCK;
+    case kTexFormatASTC_HDR_8x8: return VK_FORMAT_ASTC_8x8_SRGB_BLOCK;
+    case kTexFormatASTC_HDR_10x10: return VK_FORMAT_ASTC_10x10_SRGB_BLOCK;
+    case kTexFormatASTC_HDR_12x12: return VK_FORMAT_ASTC_12x12_SRGB_BLOCK;
+    case kTexFormatRG32: return VK_FORMAT_R16G16_UNORM;
+    case kTexFormatRGB48: return VK_FORMAT_R16G16B16_UNORM;
+    case kTexFormatRGBA64: return VK_FORMAT_R16G16B16A16_UNORM;
+    default: return VK_FORMAT_UNDEFINED;
+    }
+}
+
 class UnityVulkan : public UnityApi
 {
 public:
@@ -59,6 +137,13 @@ public:
         config_1.renderPassPrecondition = kUnityVulkanRenderPass_EnsureInside;
         config_1.flags = kUnityVulkanEventConfigFlag_EnsurePreviousFrameSubmission | kUnityVulkanEventConfigFlag_ModifiesCommandBuffersState;
         mpUnityVulkan->ConfigureEvent(1, &config_1);
+
+        VkPhysicalDeviceProperties physicalDeviceProperties;
+        _vkGetPhysicalDeviceProperties(mpPhysicalDevice, &physicalDeviceProperties);
+        if (physicalDeviceProperties.vendorID != 0x10DE)
+        {
+            DONUT_LOG_WARNING("Unity isn't using a NVIDIA card, some functions maybe disabled\n");
+        }
     }
 
     void shutdown() override
@@ -66,31 +151,13 @@ public:
         UnityApi::shutdown();
     }
 
-    uint32_t getFormat(uint32_t format) override { return 0; }// get_vk_format((TextureFormat)format); }
+    uint32_t getNativeFormat(uint32_t format) override { return get_vk_format((TextureFormat)format); }
     void* createSharedTexSrc(UnityTexDesc inDesc) override{ return inDesc.pHandle ? createSharedTexture(inDesc, true) : nullptr; }
     void* createSharedTexDst(UnityTexDesc inDesc) override { return (inDesc.pHandle && *(inDesc.pHandle)) ? createSharedTexture(inDesc, false) : nullptr; }
     void* createSharedBufSrc(UnityBufDesc inDesc) override { return inDesc.pHandle ? createSharedBuffer(inDesc, true) : nullptr; }
     void* createSharedBufDst(UnityBufDesc inDesc) override { return (inDesc.pHandle && *(inDesc.pHandle)) ? createSharedBuffer(inDesc, false) : nullptr; }
 
-    void getSharedBufferHandleWin32(void* nativeBuf, HANDLE& handle) override
-    {
-        UnityVulkanBuffer unityBuffer;
-        mpUnityVulkan->AccessBuffer(nativeBuf, 0, 0, kUnityVulkanResourceAccess_ObserveOnly, &unityBuffer);
-        handle = (unityBuffer.memory.memory != VK_NULL_HANDLE) ? unityBuffer.memory.reserved[0] : nullptr;
-    }
-
-    void getSharedTextureHandleWin32(void* nativeTex, HANDLE& handle) override
-    {
-        UnityVulkanImage unityImage;
-        mpUnityVulkan->AccessTexture(nativeTex, NULL, VK_IMAGE_LAYOUT_GENERAL, VK_PIPELINE_STAGE_NONE, VK_ACCESS_NONE, kUnityVulkanResourceAccess_ObserveOnly, &unityImage);
-        handle = (unityImage.memory.memory != VK_NULL_HANDLE) ? unityImage.memory.reserved[0] : nullptr;
-    }
-
-    nvrhi::GraphicsAPI GetPreferredAPIByUnityGfxAPI(void*& pOutUnityDevice) const override
-    {
-		pOutUnityDevice = (void*)(&mUnityVulkanInstance);
-		return nvrhi::GraphicsAPI::VULKAN;
-    }
+    nvrhi::GraphicsAPI GetPreferredAPIByUnityGfxAPI() const override { return nvrhi::GraphicsAPI::VULKAN; }
 
 private:
 
@@ -101,7 +168,7 @@ private:
         imageInfo.imageType = VK_IMAGE_TYPE_2D;
         imageInfo.mipLevels = inDesc.mipCount;
         imageInfo.arrayLayers = 1;
-        imageInfo.format = (VkFormat)(inDesc.format);
+        imageInfo.format = (VkFormat)getNativeFormat(inDesc.format);
         imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
         imageInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT; // TODO
         imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -115,7 +182,7 @@ private:
         VkImage image = VK_NULL_HANDLE;
         if (_vkCreateImage(mpDevice, &imageInfo, nullptr, &image) != VK_SUCCESS)
         {
-            logError("Error:Failed to vkCreateImage.\n");
+            DONUT_LOG_ERROR("Error:Failed to vkCreateImage: width=%d, height%d, unityFormat=%d, mip=%d, bSrc=%d\n", inDesc.width, inDesc.height, inDesc.format, inDesc.mipCount, bSrc);
             return nullptr;
         }
         mOwnedTexPtrs.push_back(image);
@@ -149,7 +216,7 @@ private:
         int memoryTypeIndex = find_memory_type_index(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
         if (memoryTypeIndex < 0)
         {
-            logError("Error:Failed to find memory type index.\n");
+            DONUT_LOG_ERROR("Error:Failed to find memory type index. width=%d, height%d, unityFormat=%d, mip=%d, bSrc=%d\n", inDesc.width, inDesc.height, inDesc.format, inDesc.mipCount, bSrc);
             return nullptr;
         }
 
@@ -162,7 +229,7 @@ private:
         VkDeviceMemory imageMemory = VK_NULL_HANDLE;
         if(_vkAllocateMemory(mpDevice, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS)
         {
-            logError("Error:Failed to vkAllocateMemory.\n");
+            DONUT_LOG_ERROR("Error:Failed to vkAllocateMemory. width=%d, height%d, unityFormat=%d, mip=%d, bSrc=%d\n", inDesc.width, inDesc.height, inDesc.format, inDesc.mipCount, bSrc);
             return nullptr;
         }
         _vkBindImageMemory(mpDevice, image, imageMemory, 0);
@@ -177,7 +244,7 @@ private:
         if (!mpUnityVulkan->CommandRecordingState(&recordingState, kUnityVulkanGraphicsQueueAccess_DontCare) ||
             recordingState.commandBuffer == VK_NULL_HANDLE)
         {
-            logError("[createSharedBuffer] Error:Failed to CommandRecordingState.\n");
+            DONUT_LOG_ERROR("[createSharedBuffer] Error:Failed to CommandRecordingState.\n");
         }
         VkBufferCreateInfo bufferInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
         bufferInfo.size = inDesc.size;
@@ -192,7 +259,7 @@ private:
         VkBuffer buffer = VK_NULL_HANDLE;
         if (_vkCreateBuffer(mpDevice, &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
         {
-            logError("Error:Failed to vkCreateBuffer.\n");
+            DONUT_LOG_ERROR("Error:Failed to vkCreateBuffer.\n");
             return nullptr;
         }
         mOwnedBufPtrs.push_back(buffer);
@@ -204,7 +271,7 @@ private:
         int memoryTypeIndex = find_memory_type_index(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
         if (memoryTypeIndex < 0)
         {
-            logError("Error:Failed to find memory type index.\n");
+            DONUT_LOG_ERROR("Error:Failed to find memory type index.\n");
             return nullptr;
         }
         // allocate memory for src buffer
@@ -236,7 +303,7 @@ private:
         VkDeviceMemory bufferMemory = VK_NULL_HANDLE;
         if (_vkAllocateMemory(mpDevice, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS)
         {
-            logError("Error:Failed to vkAllocateMemory.\n");
+            DONUT_LOG_ERROR("Error:Failed to vkAllocateMemory.\n");
             return nullptr;
         }
         _vkBindBufferMemory(mpDevice, buffer, bufferMemory, 0);
@@ -263,7 +330,7 @@ private:
         }
         else
         {
-            logError("Error:Failed to vkGetMemoryWin32HandleKHR.\n");
+            DONUT_LOG_ERROR("Error:Failed to vkGetMemoryWin32HandleKHR.\n");
             return nullptr;
         }
     }

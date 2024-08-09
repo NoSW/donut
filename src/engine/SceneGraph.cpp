@@ -327,7 +327,9 @@ void SceneGraphNode::SetLeaf(const std::shared_ptr<SceneGraphLeaf>& leaf)
 
 void SceneGraphNode::SetName(const std::string& name)
 {
+#ifndef NDEBUG
     m_Name = name;
+#endif
 }
 
 void SceneGraphNode::ReverseChildren()

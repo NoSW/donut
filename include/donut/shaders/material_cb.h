@@ -39,6 +39,7 @@ static const int MaterialFlags_UseNormalTexture                 = 0x00000020;
 static const int MaterialFlags_UseOcclusionTexture              = 0x00000040;
 static const int MaterialFlags_UseTransmissionTexture           = 0x00000080;
 
+static const int kHookMaterialTypeOffset = 28;
 static const int MaterialFlags_NonUnity = 0;
 static const int MaterialFlags_PanguScenePBR = 1;
 static const int MaterialFlags_TreeLeafV7 = 2;
@@ -77,6 +78,14 @@ struct MaterialConstants
     int     padding1;
     int     padding2;
     int     padding3;
+    
+    bool IsHookMaterial() { return (flags >> kHookMaterialTypeOffset) != MaterialFlags_NonUnity; }
+    bool IsPanguScenePBR() { return (flags >> kHookMaterialTypeOffset) == MaterialFlags_PanguScenePBR; }
+    bool IsTreeLeafV7() { return (flags >> kHookMaterialTypeOffset) == MaterialFlags_TreeLeafV7; }
+    bool IsMeshTilling() { return (flags >> kHookMaterialTypeOffset) == MaterialFlags_MeshTilling; }
+    bool IsTerrainSplat() { return (flags >> kHookMaterialTypeOffset) == MaterialFlags_TerrainSplat; }
 };
+
+
 
 #endif // MATERIAL_CB_H

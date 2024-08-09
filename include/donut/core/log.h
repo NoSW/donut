@@ -73,3 +73,9 @@ namespace donut::log
     void error(const char* fmt...);
     void fatal(const char* fmt...);
 }
+
+
+#define DONUT_LOG_FATAL(fmt, ...) donut::log::fatal("[%s:%d] " fmt, __FILE__, __LINE__, __VA_ARGS__);
+#define DONUT_LOG_ERROR(fmt, ...) donut::log::error("[%s:%d] " fmt, __FILE__, __LINE__, __VA_ARGS__);
+#define DONUT_LOG_WARNING(fmt, ...) donut::log::warning("[%s:%d] " fmt, __FILE__, __LINE__, __VA_ARGS__);
+#define DONUT_LOG_INFO(fmt, ...) donut::log::info("[%s:%d] " fmt, __FILE__, __LINE__, __VA_ARGS__);

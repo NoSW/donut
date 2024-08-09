@@ -418,7 +418,24 @@ bool GltfImporter::Load(
         case cgltf_alpha_mode_mask: matinfo->domain = useTransmission ? MaterialDomain::TransmissiveAlphaTested : MaterialDomain::AlphaTested; break;
         case cgltf_alpha_mode_blend: matinfo->domain = useTransmission ? MaterialDomain::TransmissiveAlphaBlended : MaterialDomain::AlphaBlended; break;
         }
-
+        
+        if (fileName.string().find("_gltf") != std::string::npos) // exported from Unity
+        {
+            matinfo->useSpecularGlossModel = false;
+            if (matinfo->domain == MaterialDomain::Opaque)
+            {
+                matinfo->hookMaterialType = 1;
+                matinfo->metalness = matinfo->roughness = 1.0f;
+            }
+            if (matinfo->domain == MaterialDomain::AlphaTested)
+            {
+                matinfo->hookMaterialType = 2;
+                matinfo->metalness = 0.f;
+                matinfo->roughness = 1.f;
+                matinfo->alphaCutoff = 0.333f;
+            }
+        }
+        
         materials[&material] = matinfo;
     }
     

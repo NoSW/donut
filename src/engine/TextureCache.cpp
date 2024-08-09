@@ -541,6 +541,79 @@ std::shared_ptr<LoadedTexture> TextureCache::LoadTextureFromFileDeferred(const s
     return texture;
 }
 
+std::shared_ptr<LoadedTexture> TextureCache::LoadExternalTexture(bool bExportable, bool bNative, void* handle, const std::string& debugName, int w, int h, int mip, nvrhi::Format format, bool bSRGB)
+{
+    if (w == 0 || h == 0 || mip == 0 || format == nvrhi::Format::UNKNOWN)
+    {
+        log::error("Invalid texture w=%d, h=%d or mip=%d, format=%d", w, h, mip, (int)(format));
+        return nullptr;
+    }
+
+    if (!bExportable && handle == nullptr)
+    {
+        log::error("Failed to Load external texture due to invalid texture handle");
+        return nullptr;
+    }
+
+    std::shared_ptr<LoadedTexture> texture = std::make_shared<LoadedTexture>();
+    // texture->path = debugName;
+    // texture->originalBitsPerPixel = 0; // just a stat data, we ignore it
+    // texture->mimeType // ext info, we ignore it
+
+
+    uint originalWidth = w;
+    uint originalHeight = h;
+
+    bool isBlockCompressed =
+        (format == nvrhi::Format::BC1_UNORM) ||
+        (format == nvrhi::Format::BC1_UNORM_SRGB) ||
+        (format == nvrhi::Format::BC2_UNORM) ||
+        (format == nvrhi::Format::BC2_UNORM_SRGB) ||
+        (format == nvrhi::Format::BC3_UNORM) ||
+        (format == nvrhi::Format::BC3_UNORM_SRGB) ||
+        (format == nvrhi::Format::BC4_SNORM) ||
+        (format == nvrhi::Format::BC4_UNORM) ||
+        (format == nvrhi::Format::BC5_SNORM) ||
+        (format == nvrhi::Format::BC5_UNORM) ||
+        (format == nvrhi::Format::BC6H_SFLOAT) ||
+        (format == nvrhi::Format::BC6H_UFLOAT) ||
+        (format == nvrhi::Format::BC7_UNORM) ||
+        (format == nvrhi::Format::BC7_UNORM_SRGB);
+
+    if (isBlockCompressed)
+    {
+        originalWidth = (originalWidth + 3) & ~3;
+        originalHeight = (originalHeight + 3) & ~3;
+    }
+    
+    auto expectedState = nvrhi::ResourceStates::ShaderResource;
+
+    uint scaledWidth = originalWidth;
+    uint scaledHeight = originalHeight;
+    nvrhi::TextureDesc textureDesc;
+    textureDesc.format = format;
+    textureDesc.width = scaledWidth;
+    textureDesc.height = scaledHeight;
+    textureDesc.depth = 1;
+    textureDesc.arraySize = 1;
+    textureDesc.dimension = nvrhi::TextureDimension::Texture2D;
+    textureDesc.mipLevels = mip;
+    textureDesc.debugName = debugName;
+    textureDesc.isShaderResource = true;
+    textureDesc.isRenderTarget = false;
+    textureDesc.isUAV = false;
+    textureDesc.sharedResourceFlags = bExportable ? nvrhi::SharedResourceFlags::Shared : 
+        (bNative ? nvrhi::SharedResourceFlags::Imported_Native : nvrhi::SharedResourceFlags::Imported_Shared);
+    textureDesc.importHandle = bExportable ? nullptr : handle;
+    textureDesc.initialState = nvrhi::ResourceStates::Common;
+    texture->texture = m_Device->createTexture(textureDesc);
+    if (m_DescriptorTable)
+        texture->bindlessDescriptor = m_DescriptorTable->CreateDescriptorHandle(nvrhi::BindingSetItem::Texture_SRV(0, texture->texture));
+    
+    ++m_TexturesFinalized;
+    return texture;
+}
+
 #ifdef DONUT_WITH_TASKFLOW
 std::shared_ptr<LoadedTexture> TextureCache::LoadTextureFromFileAsync(const std::filesystem::path& path, bool sRGB, tf::Executor& executor)
 {
